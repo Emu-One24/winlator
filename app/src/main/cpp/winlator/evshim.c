@@ -9,9 +9,11 @@
 #include <fcntl.h>
 #include <pthread.h>
 #include <stdarg.h>
+#include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/mman.h>
 #include <unistd.h>
 
 /* SDL2 types - minimal forward declarations */
@@ -54,12 +56,10 @@ static int g_debug_enabled = 0;
   } while (0)
 
 #define MAX_GAMEPADS 4
-static int vjoy_ids[MAX_GAMEPADS] = {-1, -1, -1, -1};
-static int read_fd[MAX_GAMEPADS] = {-1, -1, -1, -1};
-static int rumble_fd[MAX_GAMEPADS] = {-1, -1, -1, -1};
-static void *handle = NULL;
-static pthread_mutex_t shm_mutex = PTHREAD_MUTEX_INITIALIZER;
+#define GAMEPAD_MEM_SIZE 64
+#define POLL_INTERVAL_MS 8 /* ~120Hz polling, sufficient for input */
 
+/* Shared memory layout for controller state */
 struct gamepad_io {
   int16_t lx, ly, rx, ry, lt, rt;
   uint8_t btn[15];
@@ -68,6 +68,11 @@ struct gamepad_io {
   uint16_t low_freq_rumble;
   uint16_t high_freq_rumble;
 };
+
+static int vjoy_ids[MAX_GAMEPADS] = {-1, -1, -1, -1};
+static volatile struct gamepad_io *vjoy_mem[MAX_GAMEPADS] = {NULL};
+static int mem_fd[MAX_GAMEPADS] = {-1, -1, -1, -1};
+static void *handle = NULL;
 
 /* SDL function pointers */
 static int (*p_SDL_Init)(uint32_t);
@@ -89,19 +94,19 @@ static void (*p_SDL_GetVersion)(SDL_version *);
 
 static int OnRumble(void *userdata, uint16_t low, uint16_t high) {
   int idx = (int)(intptr_t)userdata;
-  if (idx < 0 || idx >= MAX_GAMEPADS || rumble_fd[idx] < 0)
+  if (idx < 0 || idx >= MAX_GAMEPADS || vjoy_mem[idx] == NULL)
     return -1;
-  uint16_t vals[2] = {low, high};
-  pthread_mutex_lock(&shm_mutex);
-  pwrite(rumble_fd[idx], vals, sizeof(vals), 32);
-  pthread_mutex_unlock(&shm_mutex);
+  /* Write rumble values directly to mapped memory (offset 32) */
+  volatile struct gamepad_io *mem = vjoy_mem[idx];
+  mem->low_freq_rumble = low;
+  mem->high_freq_rumble = high;
   return 0;
 }
 
 static void *vjoy_updater(void *arg) {
   int idx = (int)(intptr_t)arg;
-  int fd = read_fd[idx];
-  if (fd < 0)
+  volatile struct gamepad_io *mem = vjoy_mem[idx];
+  if (mem == NULL)
     return NULL;
 
   SDL_Joystick *js = p_SDL_JoystickOpen(vjoy_ids[idx]);
@@ -110,13 +115,24 @@ static void *vjoy_updater(void *arg) {
     return NULL;
   }
 
-  struct gamepad_io cur, last = {0};
+  struct gamepad_io last = {0};
   LOGI("VJOY P%d running (PID %d)\n", idx, getpid());
 
   for (;;) {
-    pthread_mutex_lock(&shm_mutex);
-    ssize_t n = read(fd, &cur, sizeof cur);
-    if (n == sizeof cur && memcmp(&cur, &last, sizeof cur) != 0) {
+    /* Direct memory access - no syscall, no mutex needed (disjoint buffers) */
+    struct gamepad_io cur;
+    cur.lx = mem->lx;
+    cur.ly = mem->ly;
+    cur.rx = mem->rx;
+    cur.ry = mem->ry;
+    cur.lt = mem->lt;
+    cur.rt = mem->rt;
+    for (int i = 0; i < 15; ++i)
+      cur.btn[i] = mem->btn[i];
+    cur.hat = mem->hat;
+
+    /* Only update SDL if state changed */
+    if (memcmp(&cur, &last, offsetof(struct gamepad_io, _padding)) != 0) {
       p_SDL_JoystickSetVirtualAxis(js, 0, cur.lx);
       p_SDL_JoystickSetVirtualAxis(js, 1, cur.ly);
       p_SDL_JoystickSetVirtualAxis(js, 2, cur.rx);
@@ -128,8 +144,8 @@ static void *vjoy_updater(void *arg) {
       p_SDL_JoystickSetVirtualHat(js, 0, cur.hat);
       last = cur;
     }
-    pthread_mutex_unlock(&shm_mutex);
-    p_SDL_Delay(5);
+
+    p_SDL_Delay(POLL_INTERVAL_MS);
   }
   return NULL;
 }
@@ -178,13 +194,23 @@ __attribute__((constructor)) static void initialize_all_pads(void) {
     snprintf(path, sizeof path, "%s/gamepad%s.mem", data_path,
              (i == 0) ? "" : (char[2]){'0' + i, '\0'});
 
-    read_fd[i] = open(path, O_RDONLY);
-    rumble_fd[i] = open(path, O_WRONLY);
-
-    if (read_fd[i] < 0 || rumble_fd[i] < 0) {
+    /* Open file for read+write (needed for mmap and rumble writeback) */
+    mem_fd[i] = open(path, O_RDWR);
+    if (mem_fd[i] < 0) {
       LOGE("P%d: failed to open '%s': %s\n", i, path, strerror(errno));
       continue;
     }
+
+    /* Memory-map the shared memory file for zero-copy access */
+    void *mem = mmap(NULL, GAMEPAD_MEM_SIZE, PROT_READ | PROT_WRITE, MAP_SHARED,
+                     mem_fd[i], 0);
+    if (mem == MAP_FAILED) {
+      LOGE("P%d: mmap failed for '%s': %s\n", i, path, strerror(errno));
+      close(mem_fd[i]);
+      mem_fd[i] = -1;
+      continue;
+    }
+    vjoy_mem[i] = (volatile struct gamepad_io *)mem;
 
     SDL_VirtualJoystickDesc d = {0};
     d.version = SDL_VIRTUAL_JOYSTICK_DESC_VERSION;

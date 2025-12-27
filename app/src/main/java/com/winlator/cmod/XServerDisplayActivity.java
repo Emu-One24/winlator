@@ -984,15 +984,15 @@ public class XServerDisplayActivity extends AppCompatActivity
         String inputAsset = "input_dlls.tzst";
 
         // ARM64EC specific input DLLs
-        if (wineVersion != null && wineVersion.contains("proton-9.0-arm64ec")) {
-            inputAsset = "arm64ec_input_dlls.tzst";
-            Log.d("XServerDisplayActivity", "Wine version contains arm64ec. Using input asset: " + inputAsset);
-        }
+        //if (wineVersion != null && wineVersion.contains("proton-9.0-arm64ec")) {
+        //    inputAsset = "arm64ec_input_dlls.tzst";
+        //    Log.d("XServerDisplayActivity", "Wine version contains arm64ec. Using input asset: " + inputAsset);
+        // }
         // x86_64 specific input DLLs
-        else if ("proton-9.0-x86_64".equals(wineVersion)) {
-            inputAsset = "x86_64_input_dlls.tzst";
-            Log.d("XServerDisplayActivity", "Wine version is x86_64. Using input asset: " + inputAsset);
-        }
+        // if ("proton-9.0-x86_64".equals(wineVersion)) {
+        //    inputAsset = "x86_64_input_dlls.tzst";
+        //    Log.d("XServerDisplayActivity", "Wine version is x86_64. Using input asset: " + inputAsset);
+        // }
 
         File wineFolder = new File(imageFs.getWinePath() + "/lib/wine/");
         boolean success = TarCompressorUtils.extract(TarCompressorUtils.Type.ZSTD, this, inputAsset, wineFolder);
