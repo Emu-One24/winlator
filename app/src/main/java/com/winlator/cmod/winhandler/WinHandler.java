@@ -674,21 +674,22 @@ public class WinHandler {
         dst.putShort((short) (src.triggerR * 32767)); // 10-11
 
         // Buttons: 15 individual bytes (0 or 1), matching evshim btn[15]
-        dst.put(src.isButtonPressed(GamepadState.BUTTON_A) ? (byte) 1 : (byte) 0); // 12
-        dst.put(src.isButtonPressed(GamepadState.BUTTON_B) ? (byte) 1 : (byte) 0); // 13
-        dst.put(src.isButtonPressed(GamepadState.BUTTON_X) ? (byte) 1 : (byte) 0); // 14
-        dst.put(src.isButtonPressed(GamepadState.BUTTON_Y) ? (byte) 1 : (byte) 0); // 15
-        dst.put(src.isButtonPressed(GamepadState.BUTTON_L1) ? (byte) 1 : (byte) 0); // 16
-        dst.put(src.isButtonPressed(GamepadState.BUTTON_R1) ? (byte) 1 : (byte) 0); // 17
-        dst.put(src.isButtonPressed(GamepadState.BUTTON_SELECT) ? (byte) 1 : (byte) 0); // 18
-        dst.put(src.isButtonPressed(GamepadState.BUTTON_START) ? (byte) 1 : (byte) 0); // 19
-        dst.put(src.isButtonPressed(GamepadState.BUTTON_L3) ? (byte) 1 : (byte) 0); // 20
-        dst.put(src.isButtonPressed(GamepadState.BUTTON_R3) ? (byte) 1 : (byte) 0); // 21
-        dst.put(src.isButtonPressed(GamepadState.BUTTON_GUIDE) ? (byte) 1 : (byte) 0); // 22
-        dst.put((byte) 0); // btn[11] padding // 23
-        dst.put((byte) 0); // btn[12] padding // 24
-        dst.put((byte) 0); // btn[13] padding // 25
-        dst.put((byte) 0); // btn[14] padding // 26
+        // Mapped according to SDL_GameControllerButton enum order
+        dst.put(src.isButtonPressed(GamepadState.BUTTON_A) ? (byte) 1 : (byte) 0); // 0: A
+        dst.put(src.isButtonPressed(GamepadState.BUTTON_B) ? (byte) 1 : (byte) 0); // 1: B
+        dst.put(src.isButtonPressed(GamepadState.BUTTON_X) ? (byte) 1 : (byte) 0); // 2: X
+        dst.put(src.isButtonPressed(GamepadState.BUTTON_Y) ? (byte) 1 : (byte) 0); // 3: Y
+        dst.put(src.isButtonPressed(GamepadState.BUTTON_SELECT) ? (byte) 1 : (byte) 0); // 4: Back
+        dst.put(src.isButtonPressed(GamepadState.BUTTON_GUIDE) ? (byte) 1 : (byte) 0); // 5: Guide
+        dst.put(src.isButtonPressed(GamepadState.BUTTON_START) ? (byte) 1 : (byte) 0); // 6: Start
+        dst.put(src.isButtonPressed(GamepadState.BUTTON_L3) ? (byte) 1 : (byte) 0); // 7: Left Stick
+        dst.put(src.isButtonPressed(GamepadState.BUTTON_R3) ? (byte) 1 : (byte) 0); // 8: Right Stick
+        dst.put(src.isButtonPressed(GamepadState.BUTTON_L1) ? (byte) 1 : (byte) 0); // 9: Left Shoulder
+        dst.put(src.isButtonPressed(GamepadState.BUTTON_R1) ? (byte) 1 : (byte) 0); // 10: Right Shoulder
+        dst.put(src.isButtonPressed(GamepadState.BUTTON_DPAD_UP) ? (byte) 1 : (byte) 0); // 11: D-Pad Up
+        dst.put(src.isButtonPressed(GamepadState.BUTTON_DPAD_DOWN) ? (byte) 1 : (byte) 0); // 12: D-Pad Down
+        dst.put(src.isButtonPressed(GamepadState.BUTTON_DPAD_LEFT) ? (byte) 1 : (byte) 0); // 13: D-Pad Left
+        dst.put(src.isButtonPressed(GamepadState.BUTTON_DPAD_RIGHT) ? (byte) 1 : (byte) 0); // 14: D-Pad Right
 
         // D-pad as hat byte (bitmask: 1=up, 2=down, 4=left, 8=right)
         byte hat = 0;
