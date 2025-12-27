@@ -1,0 +1,156 @@
+32d56cd assets: update wrapper
+20c20bf arrays: add a few more entries to device memory array
+30d4786 XServerDisplayActivity: remove seemingly unused function
+96b07d7 Merge pull request #32 from Arihany/winlator_bionic
+4f87146 oops
+737f5d2 Fix DXVK semver compare
+7e8a2ed Fix crash with prefixed vernames
+0ec8a58 XServerDisplayActivity: set WRAPPER_MAX_IMAGE_COUNT to 1 when immediate present mode is chosen
+baffb8b EnvVarsView: add two new TU_DEBUG options
+666289a assets: update wrapper
+148fe50 ContainerDetailFragment: fix default FEXCore preset not being shown on Container's creation
+b3b2bab fix BCn cache not getting enabled when option is set
+50d9b98 vulkan: hopefully finally fix crash on A12 devices using Turnip
+e9329b9 vulkan: try to fix crash on some A15 devices
+bd23c8c Container: add new container variable WRAPPER_MAX_IMAGE_COUNT to control the number of images in the Vulkan swapchain
+2beaacc assets: update wrapper
+e25d059 EnvVarsView: fix wrong identifier for some env vars
+287812f EnvVarsView: add scale and opacity env vars
+c345d86 move POST_NOTIFICATIONS permission request into MainActivity
+bddda14 assets: update wrapper
+056bb45 vulkan: advertize correct api version when creating instance, should fix crash on A12 and Turnip
+a0fabc0 improve box64 and fexcore presets import and export logic
+88ec385 GPUInformation: refractor getVersion into getVulkanVersion and fix its usage
+9e6a3d9 GraphicsDriverConfigDialog: add three new options related to BCn emulation
+5a656f4 assets: update wrapper
+3705fff Container: remove unused options from the config
+f30d8dd strings: remove now unused strings
+e865782 GraphicsDriverConfigDialog: remove two options from the dialog
+3f80d1f GPUInformation: refractor isTurnipSupported into a more generic isDriverSupported
+68d62b4 GPUInformation: add check for Turnip support
+75542cc vulkan: fix wrong return on enumerate_physical_devices
+a387841 vulkan: slight refractoring
+c557172 vulkan: slight refractoring
+e69ba55 GraphicsDriverConfigDialog: fix crash
+30a68ef GraphicsDriverConfigDialog: avoid querying driver extensions on Android 12 and lower
+740dbfd GPUInformation: slight refractoring
+686b5a9 vulkan: refractor
+4c6f165 XServerDisplayActivity: fix typo in notification text
+5b33020 add box64 like fexcore presets
+4e7fc0d move layers extraction on container first time boot
+565cd8b assets: update wrapper
+a7f6656 XServerDisplayActivity: revert commit  23a57e1
+66ae69e assets: update to the lastest wrapper-25
+ab9b5cd GuestProgramLauncherComponent: extract Vulkan layers on boot
+135a8ff GraphicsDriverConfigDialog: add two new options to set resource type and to enable blitting
+23a57e1 XServerDisplayActivity: use Wrapper to change present mode
+ae81d5d settings_fragment: add tooltip text to box64 preset buttons
+04641ff settings_fragment: replace stock Android buttons with Winlator styled buttons
+9293944 settings_fragment: move box64 preset options in the bottom
+22f9977 DXVKConfigDialog: improve dxvk blacklist
+7871681 GuestProgramLauncherComponent: disable MMAP32 on Mali
+94d7f0f GraphicsDriverConfigDialog: do not add drivers from resources on non Adreno devices
+baffde2 strings: remove Chinese translation as there is no one that can mantain it
+da90e11 move analog settings from SettingsFragment to InputControlsFragment
+7c0f268 move gyro settings from SettingsFragment to InputControlsFragment
+89a7e1c InputControlsFragment: remove duplicate cursor speed setting
+394a9d4 XServerDisplayActivity: quit fragment back into activity
+315cf8b ShortcutsFragment: rename Clone to Container to Clone
+1c35e4e ShortcutsFragment: add an option to import shortcuts
+2a7d93b SettingsFragment: add an option to export and import Box64Presets
+9f75244 FEXCoreManager: rework
+14c1950 SettingsFragment: allow choosing shortcuts export path
+baa64b8 InputControlsFragment: fix crash when trying to show toast
+71d2c3a SettingsFragment: replace Frontend Export Path setting with a generic Winlator Path Setting
+2d34757 build.gradle: retry to fix Windows builds
+0125a4a build.gradle: attempt to fix Windows build
+15015a4 WineD3DConfigDialog: re-add VideoMemorySize configuration
+09d5ce8 ContainerManager: create desktop file from lnk if the former is missing
+70d8b7b ShortcutsFragment: remove lnk file associated with shortcut if present
+8637024 GuestProgramLauncherComponent: remove unused function
+8505de2 GuestProgramLauncherComponent: remove and blacklist mangohud
+dc8a742 ShortcutSettingsDialog: remove secondary executable
+84afea5 remove touchpad help
+b6eed4e partially revert previous commit
+b92e83c move relative mouse input to XServer side menu
+6f3820a Container: remove E: drive from default drivers
+8796934 Container: remove the unused wow64 mode
+ccb157d DXVKConfigDialog: change order of spinners
+5f85e4c XServerDisplayActivity: fix extraction of ddraw wrapper when no vkd3d is selected
+686fb2d update About section
+3f276b1 DXVKConfigDialog: refractor setEnvVars
+4ef6c28 WineD3DConfigDialog: fix typo
+8900788 Add a WineD3DConfigDialog to configure wined3d
+0f0e452 ContainerDetailFragment: remove all wined3d related registry keys
+b814fb8 move ddrawrapper config into DXVKConfigDialog
+0d6f6e9 vulkan: slight refractoring
+fa780a2 move vkd3d configuration into DXVKConfigDialog
+45af1a5 SettingsFragment: add an option to change downloadable contents URL
+5464245 ContentsManager: restore downloadable contents
+21e3458 update fexcore and wowbox64 versions
+350011a ContainerDetailFragment: partially fix setupDXWrapper logic
+f428dd8 vulkan: slight refractoring
+0f66ecf replace v762 and v805 with v819
+277da4b GuestProgramLauncherComponent: add the required variables to disable proton mediaconverter plugin
+8b2df1c ContainerDetailFragment: recreate config if wrapper version is empty
+7861558 default to turnip25.1.0 on supported devices
+a2014f3 vulkan: slight refractoring
+7ee099a GraphicsDriverConfigDialog: blacklist unsupported drivers
+e46d946 DXVKConfigDialog: blacklist arm64ec dxvk on non arm64ec containers
+512f0a3 remove every non necessary asset
+aa61b86 GLRenderer: remove force fullscreen option
+4d6ecec Fix background selection in container settings
+66e8a23 StorageInfoDialog: refractor
+e0ffc8c remove unused RestoreActivity class
+78a739d Remove everything related to SaveManager
+348ca26 Remove the option to export containers
+6358a6c Remove the now dangerous option to import containers
+5e3fd65 SettingsFragment: remove backup and restore data options
+8108ea2 assets: fix wrong aarch64 dlls
+0d795ee remove every reference to Winlator 7.1.2 legacy input mode
+5204122 VKD3DVersionItem: do not force version on assets files
+192b361 Remove TerminalActivity and all related code
+8e12841 vulkan: slight refractoring
+aedde07 remove any reference to the unused box86, merge BionicProgramLauncherComponent into GuestProgramLauncherComponent
+074c6fe BionicProgramLauncherComponent: completely block the usage of rcfiles
+1daf925 remove all RCFile settings and all related files
+974426b Container: restore getFallbackCPUListWoW64
+cd6ad7a ShortcutSettingsDialog: remove cpuListWoW64
+0fa6628 assets: update container_pattern_common
+94c5eaf Remove opengl wincomponent and force Windows Zink on ARM64EC
+e9b81a7 EnvVarsView: add MESA_GL_VERSION_OVERRIDE env var
+9d95feb EnvVarsView: add two new default EnvVars
+af79a63 vulkan.cpp: general refractoring
+e41978e XServerDisplayActivity: fix framerating logic
+ac04572 Revert "ContainerManager: create symlinks instead of copying files over during container creation"
+ebf6b5e assets: update non Adrenotools Turnip
+df4cf57 XServerDisplayActivity: avoid hardcoding some values
+053ddae XServer: implement opcode 58 COPY_GC
+4866f3b rework FrameRating logic
+797257d XServerDisplayActivity: slight refractoring
+c37efbc XServerDisplayActivity: remove dependency from util layer
+a780d3a GraphicsDriverConfigDialog: add two syncFrame and disablePresentWait options
+4011ba5 GraphicsDriverConfigDialog: slight refractoring
+cda8504 GraphicsDriverConfigDialog: limit number of Views displayed in the ScrollView
+fef9e03 GraphicsDriverConfigDialog: add option to spoof Vulkan version
+ef5eb76 assets: update wrapper to new Mesa 25 codebase
+a375bd6 GraphicsDriverConfigDialog: replace frameSync with a presentMode option
+7e5f779 GraphicsDriverConfigDialog: replace the sAvailableExtensions spinner and its custom adapter with a MultiSelectionComboBox
+e97a6a8 MultiSelectionComboBox: hardcode a new behavior for MultiSelectionComboBox
+a916ac1 GPUInformation: allow querying GPU information through adrenotools
+fb8722a ImageFSInstaller: unpack adrenotools drivers on imagefs extraction
+d4bc043 ContainerManager: create symlinks instead of copying files over during container creation
+8489dd6 FEXCoreManager: remove almost unused createAppConfigFiles
+0f944cf remove the soon unnecessary functionalities about container regeneration
+0196394 XServerDisplayActivity: remove some more unused functions
+1337f75 improve container and shortcut exit logic
+190b36e remove some more winetricks references
+c20a78d ContainerManager: avoid extracting icu.dll and tabtip.exe
+5d9956a XServerDisplayActivity: remove the now unused GlibcProgramLauncherComponent and restartTriggerObserver
+7283797 XServerDisplayActivity: remove Win32AppWorkArounds
+17e4bf2 XServerDisplayActivity: remove some more unused code
+64ef830 remove the now unused and useless NetworkInfoUpdateComponent and VortekrendererComponent
+fce8c03 XServerDisplayActivity: remove Winetricks and all its references
+0cd5a45 gradle: add tasks to pull imagefs and proton assets
+c60f650 initial commit
+650d538 update gitignore

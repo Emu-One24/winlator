@@ -635,4 +635,15 @@ E.g. <b>META</b> for <i>META key</i>, \n
     <string name="vkbasalt_sharpness_level">Sharpness Level</string>
     <string name="vkbasalt_sharpness_denoise">Sharpeness Denoise</string>
     <string name="shutdown">Shutdown</string>
+    <string name="restart_required_for_changes">Restart required for changes to take effect</string>
+    <string name="player_1">Player 1</string>
+    <string name="player_2">Player 2</string>
+    <string name="player_3">Player 3</string>
+    <string name="player_4">Player 4</string>
+    <string name="not_assigned">Not Assigned</string>
+    <string name="vibrate">Vibrate</string>
+    <string name="macros">Macros</string>
+    <string name="assign">Assign</string>
+    <string name="press_any_button_for_player">Press any button for Player</string>
+    <string name="controller_manager">Controller Manager</string>
 </resources>

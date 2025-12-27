@@ -24,12 +24,27 @@ import com.winlator.cmod.core.Callback;
 
 import java.util.ArrayList;
 
+import com.winlator.cmod.inputcontrols.ControllerManager;
+
+import android.view.InputDevice;
+import android.view.KeyEvent;
+
 public class ContentDialog extends Dialog {
     public Runnable onConfirmCallback;
     private Runnable onCancelCallback;
     private final View contentView;
 
     private boolean isDarkMode;
+
+    public interface OnControllerInputListener {
+        void onControllerInput(InputDevice device);
+    }
+
+    private OnControllerInputListener onControllerInputListener;
+
+    public void setOnControllerInputListener(OnControllerInputListener listener) {
+        this.onControllerInputListener = listener;
+    }
 
     public ContentDialog(@NonNull Context context) {
         this(context, 0);
@@ -41,16 +56,16 @@ public class ContentDialog extends Dialog {
         super(context, R.style.ContentDialog);
         contentView = LayoutInflater.from(context).inflate(R.layout.content_dialog, null);
 
-
         SharedPreferences sharedPreferences = PreferenceManager.getDefaultSharedPreferences(context);
         isDarkMode = sharedPreferences.getBoolean("dark_mode", false);
 
-//        contentView.setBackgroundResource(isDarkMode ? R.drawable.content_dialog_background_dark: R.drawable.content_dialog_background);
+        // contentView.setBackgroundResource(isDarkMode ?
+        // R.drawable.content_dialog_background_dark:
+        // R.drawable.content_dialog_background);
 
         if (isDarkMode) {
             this.getContext().setTheme(R.style.ContentDialog_Dark);
         }
-
 
         if (layoutResId > 0) {
             FrameLayout frameLayout = contentView.findViewById(R.id.FrameLayout);
@@ -61,13 +76,15 @@ public class ContentDialog extends Dialog {
 
         View confirmButton = contentView.findViewById(R.id.BTConfirm);
         confirmButton.setOnClickListener((v) -> {
-            if (onConfirmCallback != null) onConfirmCallback.run();
+            if (onConfirmCallback != null)
+                onConfirmCallback.run();
             dismiss();
         });
 
         View cancelButton = contentView.findViewById(R.id.BTCancel);
         cancelButton.setOnClickListener((v) -> {
-            if (onCancelCallback != null) onCancelCallback.run();
+            if (onCancelCallback != null)
+                onCancelCallback.run();
             dismiss();
         });
 
@@ -91,6 +108,24 @@ public class ContentDialog extends Dialog {
     }
 
     @Override
+    public boolean dispatchKeyEvent(@NonNull KeyEvent event) {
+        // If we are actively listening for controller input...
+        if (onControllerInputListener != null && event.getAction() == KeyEvent.ACTION_DOWN) {
+            InputDevice device = event.getDevice();
+            // And the event is from a real, physical game controller...
+            if (device != null && !device.isVirtual() && ControllerManager.isGameController(device)) {
+                // ...then trigger our callback and consume the event so it doesn't do anything
+                // else.
+                onControllerInputListener.onControllerInput(device);
+                return true;
+            }
+        }
+        // Otherwise, process the key event normally (e.g., for keyboard input in an
+        // EditText).
+        return super.dispatchKeyEvent(event);
+    }
+
+    @Override
     public void setTitle(int titleResId) {
         setTitle(getContext().getString(titleResId));
     }
@@ -108,8 +143,7 @@ public class ContentDialog extends Dialog {
         if (title != null && !title.isEmpty()) {
             tvTitle.setText(title);
             titleBar.setVisibility(View.VISIBLE);
-        }
-        else {
+        } else {
             tvTitle.setText("");
             titleBar.setVisibility(View.GONE);
         }
@@ -121,8 +155,7 @@ public class ContentDialog extends Dialog {
         if (bottomBarText != null && !bottomBarText.isEmpty()) {
             tvBottomBarText.setText(bottomBarText);
             tvBottomBarText.setVisibility(View.VISIBLE);
-        }
-        else {
+        } else {
             tvBottomBarText.setText("");
             tvBottomBarText.setVisibility(View.GONE);
         }
@@ -138,8 +171,7 @@ public class ContentDialog extends Dialog {
         if (message != null && !message.isEmpty()) {
             tvMessage.setText(message);
             tvMessage.setVisibility(View.VISIBLE);
-        }
-        else {
+        } else {
             tvMessage.setText("");
             tvMessage.setVisibility(View.GONE);
         }
@@ -185,13 +217,15 @@ public class ContentDialog extends Dialog {
         applyDarkThemeToEditText(editText, isDarkMode);
 
         editText.setHint(R.string.untitled);
-        if (defaultText != null) editText.setText(defaultText);
+        if (defaultText != null)
+            editText.setText(defaultText);
         editText.setVisibility(View.VISIBLE);
 
         dialog.setTitle(titleResId);
         dialog.setOnConfirmCallback(() -> {
             String text = editText.getText().toString().trim();
-            if (!text.isEmpty()) callback.call(text);
+            if (!text.isEmpty())
+                callback.call(text);
         });
 
         dialog.show();
@@ -209,7 +243,8 @@ public class ContentDialog extends Dialog {
         }
     }
 
-    public static void showMultipleChoiceList(Context context, int titleResId, final String[] items, Callback<ArrayList<Integer>> callback) {
+    public static void showMultipleChoiceList(Context context, int titleResId, final String[] items,
+            Callback<ArrayList<Integer>> callback) {
         ContentDialog dialog = new ContentDialog(context);
 
         final ListView listView = dialog.findViewById(R.id.ListView);
@@ -223,7 +258,8 @@ public class ContentDialog extends Dialog {
             ArrayList<Integer> result = new ArrayList<>();
             SparseBooleanArray checkedItemPositions = listView.getCheckedItemPositions();
             for (int i = 0; i < checkedItemPositions.size(); i++) {
-                if (checkedItemPositions.valueAt(i)) result.add(checkedItemPositions.keyAt(i));
+                if (checkedItemPositions.valueAt(i))
+                    result.add(checkedItemPositions.keyAt(i));
             }
             callback.call(result);
         });
@@ -231,7 +267,8 @@ public class ContentDialog extends Dialog {
         dialog.show();
     }
 
-    public static void showSingleChoiceList(Context context, int titleResId, final String[] items, Callback<Integer> callback) {
+    public static void showSingleChoiceList(Context context, int titleResId, final String[] items,
+            Callback<Integer> callback) {
         ContentDialog dialog = new ContentDialog(context);
         dialog.getContentView().findViewById(R.id.BTConfirm).setVisibility(View.GONE);
 

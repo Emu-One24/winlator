@@ -29,10 +29,12 @@ import com.winlator.cmod.fexcore.FEXCorePresetManager;
 import com.winlator.cmod.xconnector.UnixSocketConfig;
 import com.winlator.cmod.xenvironment.EnvironmentComponent;
 import com.winlator.cmod.xenvironment.ImageFs;
+import com.winlator.cmod.inputcontrols.ControllerManager;
 
 import java.io.BufferedReader;
 import java.io.File;
 import java.io.IOException;
+import java.io.RandomAccessFile;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.net.InetAddress;
@@ -61,12 +63,18 @@ public class GuestProgramLauncherComponent extends EnvironmentComponent {
     public void setWineInfo(WineInfo wineInfo) {
         this.wineInfo = wineInfo;
     }
+
     public WineInfo getWineInfo() {
         return this.wineInfo;
     }
 
-    public Container getContainer() { return this.container; }
-    public void setContainer(Container container) { this.container = container; }
+    public Container getContainer() {
+        return this.container;
+    }
+
+    public void setContainer(Container container) {
+        this.container = container;
+    }
 
     private void extractBox64Files() {
         ImageFs imageFs = environment.getImageFs();
@@ -87,7 +95,8 @@ public class GuestProgramLauncherComponent extends EnvironmentComponent {
             if (profile != null)
                 contentsManager.applyContent(profile);
             else
-                TarCompressorUtils.extract(TarCompressorUtils.Type.ZSTD, context, "box64/box64-" + box64Version + ".tzst", rootDir);
+                TarCompressorUtils.extract(TarCompressorUtils.Type.ZSTD, context,
+                        "box64/box64-" + box64Version + ".tzst", rootDir);
             container.putExtra("box64Version", box64Version);
             container.saveData();
         }
@@ -99,7 +108,8 @@ public class GuestProgramLauncherComponent extends EnvironmentComponent {
         }
     }
 
-    private void extractEmulatorsDlls() {;
+    private void extractEmulatorsDlls() {
+        ;
         Context context = environment.getContext();
         File rootDir = environment.getImageFs().getRootDir();
         File system32dir = new File(rootDir + "/home/xuser/.wine/drive_c/windows/system32");
@@ -120,7 +130,8 @@ public class GuestProgramLauncherComponent extends EnvironmentComponent {
             if (profile != null)
                 contentsManager.applyContent(profile);
             else
-                TarCompressorUtils.extract(TarCompressorUtils.Type.ZSTD, environment.getContext(), "wowbox64/wowbox64-" + wowbox64Version + ".tzst", system32dir);
+                TarCompressorUtils.extract(TarCompressorUtils.Type.ZSTD, environment.getContext(),
+                        "wowbox64/wowbox64-" + wowbox64Version + ".tzst", system32dir);
             container.putExtra("box64Version", wowbox64Version);
             containerDataChanged = true;
         }
@@ -130,14 +141,17 @@ public class GuestProgramLauncherComponent extends EnvironmentComponent {
             if (profile != null)
                 contentsManager.applyContent(profile);
             else
-                TarCompressorUtils.extract(TarCompressorUtils.Type.ZSTD, environment.getContext(), "fexcore/fexcore-" + fexcoreVersion + ".tzst", system32dir);
+                TarCompressorUtils.extract(TarCompressorUtils.Type.ZSTD, environment.getContext(),
+                        "fexcore/fexcore-" + fexcoreVersion + ".tzst", system32dir);
             container.putExtra("fexcoreVersion", fexcoreVersion);
             containerDataChanged = true;
         }
-        if (containerDataChanged) container.saveData();
+        if (containerDataChanged)
+            container.saveData();
     }
 
-    public GuestProgramLauncherComponent(ContentsManager contentsManager, ContentProfile wineProfile, Shortcut shortcut) {
+    public GuestProgramLauncherComponent(ContentsManager contentsManager, ContentProfile wineProfile,
+            Shortcut shortcut) {
         this.contentsManager = contentsManager;
         this.wineProfile = wineProfile;
         this.shortcut = shortcut;
@@ -154,7 +168,6 @@ public class GuestProgramLauncherComponent extends EnvironmentComponent {
             pid = execGuestProgram();
         }
     }
-
 
     private String checkDependencies() {
         String curlPath = environment.getImageFs().getRootDir().getPath() + "/usr/lib/libXau.so";
@@ -183,7 +196,6 @@ public class GuestProgramLauncherComponent extends EnvironmentComponent {
         Log.d("CurlDeps", output.toString()); // Log the full dependency output
         return output.toString();
     }
-
 
     @Override
     public void stop() {
@@ -235,7 +247,9 @@ public class GuestProgramLauncherComponent extends EnvironmentComponent {
         this.box64Preset = box64Preset;
     }
 
-    public void setFEXCorePreset (String fexcorePreset) { this.fexcorePreset = fexcorePreset; }
+    public void setFEXCorePreset(String fexcorePreset) {
+        this.fexcorePreset = fexcorePreset;
+    }
 
     private int execGuestProgram() {
         Context context = environment.getContext();
@@ -255,6 +269,25 @@ public class GuestProgramLauncherComponent extends EnvironmentComponent {
         }
 
         EnvVars envVars = new EnvVars();
+
+        // --- Controller support: create shared memory files ---
+        final int enabledPlayerCount = ControllerManager.getInstance().getEnabledPlayerCount();
+        File tmpDir = imageFs.getTmpDir();
+        tmpDir.mkdirs();
+        String tmpPath = tmpDir.getAbsolutePath();
+        for (int i = 0; i < enabledPlayerCount; i++) {
+            String memPath = (i == 0)
+                    ? tmpPath + "/gamepad.mem"
+                    : tmpPath + "/gamepad" + i + ".mem";
+            File memFile = new File(memPath);
+            try (RandomAccessFile raf = new RandomAccessFile(memFile, "rw")) {
+                raf.setLength(64);
+            } catch (IOException e) {
+                Log.e("GuestProgramLauncher", "Failed to create mem file for player " + i, e);
+            }
+        }
+        envVars.put("EVSHIM_MAX_PLAYERS", String.valueOf(enabledPlayerCount));
+        envVars.put("EVSHIM_DATA_PATH", tmpPath);
 
         addBox64EnvVars(envVars, enableBox64Logs);
         envVars.putAll(FEXCorePresetManager.getEnvVars(context, fexcorePreset));
@@ -278,7 +311,8 @@ public class GuestProgramLauncherComponent extends EnvironmentComponent {
         envVars.put("XDG_CONFIG_DIRS", rootDir.getPath() + "/usr/etc/xdg");
         envVars.put("GST_PLUGIN_PATH", rootDir.getPath() + "/usr/lib/gstreamer-1.0");
         envVars.put("FONTCONFIG_PATH", rootDir.getPath() + "/usr/etc/fonts");
-        envVars.put("VK_LAYER_PATH", rootDir.getPath() + "/usr/share/vulkan/implicit_layer.d" + ":" + rootDir.getPath() + "/usr/share/vulkan/explicit_layer.d");
+        envVars.put("VK_LAYER_PATH", rootDir.getPath() + "/usr/share/vulkan/implicit_layer.d" + ":" + rootDir.getPath()
+                + "/usr/share/vulkan/explicit_layer.d");
         envVars.put("WRAPPER_LAYER_PATH", rootDir.getPath() + "/usr/lib");
         envVars.put("WRAPPER_CACHE_PATH", rootDir.getPath() + "/usr/var/cache");
         envVars.put("WINE_NO_DUPLICATE_EXPLORER", "1");
@@ -286,7 +320,8 @@ public class GuestProgramLauncherComponent extends EnvironmentComponent {
         envVars.put("DISPLAY", ":0");
         envVars.put("WINE_DISABLE_FULLSCREEN_HACK", "1");
         envVars.put("GST_PLUGIN_FEATURE_RANK", "ximagesink:3000");
-        envVars.put("ALSA_CONFIG_PATH", rootDir.getPath() + "/usr/share/alsa/alsa.conf" + ":" + rootDir.getPath() + "/usr/etc/alsa/conf.d/android_aserver.conf");
+        envVars.put("ALSA_CONFIG_PATH", rootDir.getPath() + "/usr/share/alsa/alsa.conf" + ":" + rootDir.getPath()
+                + "/usr/etc/alsa/conf.d/android_aserver.conf");
         envVars.put("ALSA_PLUGIN_DIR", rootDir.getPath() + "/usr/lib/alsa-lib");
         envVars.put("OPENSSL_CONF", rootDir.getPath() + "/usr/etc/tls/openssl.cnf");
         envVars.put("SSL_CERT_FILE", rootDir.getPath() + "/usr/etc/tls/cert.pem");
@@ -305,23 +340,30 @@ public class GuestProgramLauncherComponent extends EnvironmentComponent {
         envVars.put("PATH", winePath + ":" +
                 rootDir.getPath() + "/usr/bin");
 
- 
         envVars.put("ANDROID_SYSVSHM_SERVER", rootDir.getPath() + UnixSocketConfig.SYSVSHM_SERVER_PATH);
 
         String primaryDNS = "8.8.4.4";
-        ConnectivityManager connectivityManager = (ConnectivityManager) context.getSystemService(Service.CONNECTIVITY_SERVICE);
+        ConnectivityManager connectivityManager = (ConnectivityManager) context
+                .getSystemService(Service.CONNECTIVITY_SERVICE);
         if (connectivityManager.getActiveNetwork() != null) {
-            ArrayList<InetAddress> dnsServers = new ArrayList<>(connectivityManager.getLinkProperties(connectivityManager.getActiveNetwork()).getDnsServers());
+            ArrayList<InetAddress> dnsServers = new ArrayList<>(
+                    connectivityManager.getLinkProperties(connectivityManager.getActiveNetwork()).getDnsServers());
             primaryDNS = dnsServers.get(0).toString().substring(1);
         }
         envVars.put("ANDROID_RESOLV_DNS", primaryDNS);
         envVars.put("WINE_NEW_NDIS", "1");
-        
+
         String ld_preload = "";
-        
+
         // Check for specific shared memory libraries
-        if ((new File(imageFs.getLibDir(), "libandroid-sysvshm.so")).exists()){
+        if ((new File(imageFs.getLibDir(), "libandroid-sysvshm.so")).exists()) {
             ld_preload = imageFs.getLibDir() + "/libandroid-sysvshm.so";
+        }
+
+        // Add evshim for controller support (creates virtual SDL joysticks)
+        String evshimPath = imageFs.getLibDir() + "/libevshim.so";
+        if (new File(evshimPath).exists()) {
+            ld_preload += (ld_preload.isEmpty() ? "" : ":") + evshimPath;
         }
 
         envVars.put("LD_PRELOAD", ld_preload);
@@ -333,7 +375,7 @@ public class GuestProgramLauncherComponent extends EnvironmentComponent {
         if (this.envVars.has("MANGOHUD_CONFIG")) {
             this.envVars.remove("MANGOHUD_CONFIG");
         }
-        
+
         // Merge any additional environment variables from external sources
         if (this.envVars != null) {
             envVars.putAll(this.envVars);
@@ -351,20 +393,19 @@ public class GuestProgramLauncherComponent extends EnvironmentComponent {
             for (String part : parts)
                 command += part + " ";
             command = command.trim();
-        }
-        else {
+        } else {
             if (wineInfo.isArm64EC()) {
                 command = winePath + "/" + guestExecutable;
                 if (emulator.toLowerCase().equals("fexcore"))
                     envVars.put("HODLL", "libwow64fex.dll");
                 else
                     envVars.put("HODLL", "wowbox64.dll");
-            }
-            else
+            } else
                 command = imageFs.getBinDir() + "/box64 " + guestExecutable;
         }
 
-        // **Maybe remove this: Set execute permissions for box64 if necessary (Glibc/Proot artifact)
+        // **Maybe remove this: Set execute permissions for box64 if necessary
+        // (Glibc/Proot artifact)
         File box64File = new File(rootDir, "/usr/bin/box64");
         if (box64File.exists()) {
             FileUtils.chmod(box64File, 0755);
@@ -396,13 +437,15 @@ public class GuestProgramLauncherComponent extends EnvironmentComponent {
 
     public void suspendProcess() {
         synchronized (lock) {
-            if (pid != -1) ProcessHelper.suspendProcess(pid);
+            if (pid != -1)
+                ProcessHelper.suspendProcess(pid);
         }
     }
 
     public void resumeProcess() {
         synchronized (lock) {
-            if (pid != -1) ProcessHelper.resumeProcess(pid);
+            if (pid != -1)
+                ProcessHelper.resumeProcess(pid);
         }
     }
 }

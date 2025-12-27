@@ -48,6 +48,8 @@ import com.winlator.cmod.xenvironment.ImageFsInstaller;
 import java.io.File;
 import java.util.List;
 
+import com.winlator.cmod.inputcontrols.ControllerManager;
+
 public class MainActivity extends AppCompatActivity implements NavigationView.OnNavigationItemSelectedListener {
     public static final @IntRange(from = 1, to = 19) byte CONTAINER_PATTERN_COMPRESSION_LEVEL = 9;
     public static final byte PERMISSION_WRITE_EXTERNAL_STORAGE_REQUEST_CODE = 1;
@@ -62,7 +64,6 @@ public class MainActivity extends AppCompatActivity implements NavigationView.On
     private SharedPreferences sharedPreferences;
     private ContainerManager containerManager;
     private boolean isDarkMode;
-
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -91,8 +92,10 @@ public class MainActivity extends AppCompatActivity implements NavigationView.On
             setTheme(R.style.AppTheme);
         }
 
-
         setContentView(R.layout.main_activity);
+
+        // Initialize ControllerManager for multi-controller support
+        ControllerManager.getInstance().init(getApplicationContext());
 
         drawerLayout = findViewById(R.id.DrawerLayout);
         NavigationView navigationView = findViewById(R.id.NavigationView);
@@ -108,7 +111,6 @@ public class MainActivity extends AppCompatActivity implements NavigationView.On
         // Determine text color based on dark mode
         int textColor = isDarkMode ? Color.WHITE : Color.BLACK;
         setNavigationViewItemTextColor(navigationView, textColor);
-        
 
         containerManager = new ContainerManager(this);
 
@@ -136,8 +138,9 @@ public class MainActivity extends AppCompatActivity implements NavigationView.On
             }
 
             if (Build.VERSION.SDK_INT >= 33) {
-                if (ActivityCompat.checkSelfPermission(this, android.Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
-                    requestPermissions(new String[]{Manifest.permission.POST_NOTIFICATIONS}, 0);
+                if (ActivityCompat.checkSelfPermission(this,
+                        android.Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
+                    requestPermissions(new String[] { Manifest.permission.POST_NOTIFICATIONS }, 0);
                 }
             }
         }
@@ -146,7 +149,8 @@ public class MainActivity extends AppCompatActivity implements NavigationView.On
     private void showAllFilesAccessDialog() {
         new AlertDialog.Builder(this)
                 .setTitle("All Files Access Required")
-                .setMessage("In order to grant access to additional storage devices such as USB storage device, the All Files Access permission must be granted. Press Okay to grant All Files Access in your Android Settings.")
+                .setMessage(
+                        "In order to grant access to additional storage devices such as USB storage device, the All Files Access permission must be granted. Press Okay to grant All Files Access in your Android Settings.")
                 .setPositiveButton("Okay", (dialog, which) -> {
                     Intent intent = new Intent(Settings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION);
                     intent.setData(Uri.parse("package:" + getPackageName()));
@@ -157,13 +161,14 @@ public class MainActivity extends AppCompatActivity implements NavigationView.On
     }
 
     @Override
-    public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions, @NonNull int[] grantResults) {
+    public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions,
+            @NonNull int[] grantResults) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults);
         if (requestCode == PERMISSION_WRITE_EXTERNAL_STORAGE_REQUEST_CODE) {
             if (grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
                 ImageFsInstaller.installIfNeeded(this);
-            }
-            else finish();
+            } else
+                finish();
         }
     }
 
@@ -178,22 +183,26 @@ public class MainActivity extends AppCompatActivity implements NavigationView.On
             }
         }
         if (!editInputControls)
-            show(new ContainersFragment(), true);  // Pass `true` to trigger the reverse animation
+            show(new ContainersFragment(), true); // Pass `true` to trigger the reverse animation
         else
             super.onBackPressed();
     }
 
     private boolean requestAppPermissions() {
-        boolean hasWritePermission = ContextCompat.checkSelfPermission(this, Manifest.permission.WRITE_EXTERNAL_STORAGE) == PackageManager.PERMISSION_GRANTED;
-        boolean hasReadPermission = ContextCompat.checkSelfPermission(this, Manifest.permission.READ_EXTERNAL_STORAGE) == PackageManager.PERMISSION_GRANTED;
-        boolean hasManageStoragePermission = Build.VERSION.SDK_INT < Build.VERSION_CODES.R || Environment.isExternalStorageManager();
+        boolean hasWritePermission = ContextCompat.checkSelfPermission(this,
+                Manifest.permission.WRITE_EXTERNAL_STORAGE) == PackageManager.PERMISSION_GRANTED;
+        boolean hasReadPermission = ContextCompat.checkSelfPermission(this,
+                Manifest.permission.READ_EXTERNAL_STORAGE) == PackageManager.PERMISSION_GRANTED;
+        boolean hasManageStoragePermission = Build.VERSION.SDK_INT < Build.VERSION_CODES.R
+                || Environment.isExternalStorageManager();
 
         if (hasWritePermission && hasReadPermission && hasManageStoragePermission) {
             return false; // All permissions are granted
         }
 
         if (!hasWritePermission || !hasReadPermission) {
-            String[] permissions = new String[]{Manifest.permission.WRITE_EXTERNAL_STORAGE, Manifest.permission.READ_EXTERNAL_STORAGE};
+            String[] permissions = new String[] { Manifest.permission.WRITE_EXTERNAL_STORAGE,
+                    Manifest.permission.READ_EXTERNAL_STORAGE };
             ActivityCompat.requestPermissions(this, permissions, PERMISSION_WRITE_EXTERNAL_STORAGE_REQUEST_CODE);
         }
 
@@ -236,22 +245,22 @@ public class MainActivity extends AppCompatActivity implements NavigationView.On
 
         switch (item.getItemId()) {
             case R.id.main_menu_shortcuts:
-                show(new ShortcutsFragment(), false);  // Forward animation
+                show(new ShortcutsFragment(), false); // Forward animation
                 break;
             case R.id.main_menu_containers:
-                show(new ContainersFragment(), false);  // Forward animation
+                show(new ContainersFragment(), false); // Forward animation
                 break;
             case R.id.main_menu_input_controls:
-                show(new InputControlsFragment(selectedProfileId), false);  // Forward animation
+                show(new InputControlsFragment(selectedProfileId), false); // Forward animation
                 break;
             case R.id.main_menu_contents:
-                show(new ContentsFragment(), false);  // Forward animation
+                show(new ContentsFragment(), false); // Forward animation
                 break;
             case R.id.main_menu_adrenotools_gpu_drivers:
                 show(new AdrenotoolsFragment(), false);
                 break;
             case R.id.main_menu_settings:
-                show(new SettingsFragment(), false);  // Forward animation
+                show(new SettingsFragment(), false); // Forward animation
                 break;
             case R.id.main_menu_about:
                 showAboutDialog();
@@ -260,26 +269,25 @@ public class MainActivity extends AppCompatActivity implements NavigationView.On
         return true;
     }
 
-
-//    private void show(Fragment fragment) {
-//        FragmentManager fragmentManager = getSupportFragmentManager();
-//        fragmentManager.beginTransaction()
-//                .replace(R.id.FLFragmentContainer, fragment)
-//                .commit();
-//
-//        drawerLayout.closeDrawer(GravityCompat.START);
-//    }
+    // private void show(Fragment fragment) {
+    // FragmentManager fragmentManager = getSupportFragmentManager();
+    // fragmentManager.beginTransaction()
+    // .replace(R.id.FLFragmentContainer, fragment)
+    // .commit();
+    //
+    // drawerLayout.closeDrawer(GravityCompat.START);
+    // }
 
     private void show(Fragment fragment, boolean reverse) {
         FragmentManager fragmentManager = getSupportFragmentManager();
         if (reverse) {
             fragmentManager.beginTransaction()
-                    .setCustomAnimations(R.anim.slide_in_down, R.anim.slide_out_up)  // Reverse animation
+                    .setCustomAnimations(R.anim.slide_in_down, R.anim.slide_out_up) // Reverse animation
                     .replace(R.id.FLFragmentContainer, fragment)
                     .commit();
         } else {
             fragmentManager.beginTransaction()
-                    .setCustomAnimations(R.anim.slide_in_up, R.anim.slide_out_down)  // Forward animation
+                    .setCustomAnimations(R.anim.slide_in_up, R.anim.slide_out_down) // Forward animation
                     .replace(R.id.FLFragmentContainer, fragment)
                     .commit();
         }
@@ -301,10 +309,12 @@ public class MainActivity extends AppCompatActivity implements NavigationView.On
             final PackageInfo pInfo = getPackageManager().getPackageInfo(getPackageName(), 0);
 
             TextView tvWebpage = dialog.findViewById(R.id.TVWebpage);
-            tvWebpage.setText(Html.fromHtml("<a href=\"https://www.winlator.org\">winlator.org</a>", Html.FROM_HTML_MODE_LEGACY));
+            tvWebpage.setText(
+                    Html.fromHtml("<a href=\"https://www.winlator.org\">winlator.org</a>", Html.FROM_HTML_MODE_LEGACY));
             tvWebpage.setMovementMethod(LinkMovementMethod.getInstance());
 
-            ((TextView) dialog.findViewById(R.id.TVAppVersion)).setText(getString(R.string.version) + " " + pInfo.versionName);
+            ((TextView) dialog.findViewById(R.id.TVAppVersion))
+                    .setText(getString(R.string.version) + " " + pInfo.versionName);
 
             String creditsAndThirdPartyAppsHTML = String.join("<br />",
                     "Winlator Cmod by coffincolors, me (<a href=\"https://github.com/coffincolors/winlator\">Fork</a>, <a href=\"https://github.com/Pipetto-crypto/winlator\">Fork</a>)",
@@ -321,8 +331,7 @@ public class MainActivity extends AppCompatActivity implements NavigationView.On
                     "CNC DDraw (<a href=\"https://github.com/FunkyFr3sh/cnc-ddraw\">github.com/FunkyFr3sh/cnc-ddraw</a>)",
                     "dxwrapper (<a href=\"https://github.com/elishacloud/dxwrapper\">github.com/elishacloud/dxwrapper</a>)",
                     "FEX-Emu (<a href=\"https://github.com/FEX-Emu/FEX\">github.com/FEX-Emu/FEX</a>)",
-                    "libadrenotools (<a href=\"https://github.com/bylaws/libadrenotools\">github.com/bylaws/libadrenotools</a>)"
-            );
+                    "libadrenotools (<a href=\"https://github.com/bylaws/libadrenotools\">github.com/bylaws/libadrenotools</a>)");
 
             TextView tvCreditsAndThirdPartyApps = dialog.findViewById(R.id.TVCreditsAndThirdPartyApps);
             tvCreditsAndThirdPartyApps.setText(Html.fromHtml(creditsAndThirdPartyAppsHTML, Html.FROM_HTML_MODE_LEGACY));
@@ -366,7 +375,8 @@ public class MainActivity extends AppCompatActivity implements NavigationView.On
         super.onActivityResult(requestCode, resultCode, data);
         if (requestCode == OPEN_IMAGE_REQUEST_CODE && resultCode == RESULT_OK) {
             Bitmap bitmap = ImageUtils.getBitmapFromUri(this, data.getData(), 1280);
-            if (bitmap == null) return;
+            if (bitmap == null)
+                return;
             File userWallpaperFile = WineThemeManager.getUserWallpaperFile(this);
             ImageUtils.save(bitmap, userWallpaperFile, Bitmap.CompressFormat.PNG, 100);
         }

@@ -10,6 +10,10 @@
             android:id="@+id/main_menu_input_controls"
             android:title="@string/input_controls" />
         <item
+            android:icon="@drawable/icon_input_controls"
+            android:id="@+id/main_menu_controller_manager"
+            android:title="@string/controller_manager" />
+        <item
             android:id="@+id/main_menu_relative_mouse_movement"
             android:title="Toggle Relative Mouse Movement" />
         <item
