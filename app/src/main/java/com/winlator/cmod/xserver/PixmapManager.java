@@ -11,12 +11,13 @@ public class PixmapManager extends XResourceManager {
 
     public PixmapManager() {
         visual = new Visual(IDGenerator.generate(), true, 32, 24, 0xff0000, 0x00ff00, 0x0000ff);
-        supportedVisuals = new Visual[]{visual, new Visual(IDGenerator.generate(), false, 1, 1, 0, 0, 0)};
+        supportedVisuals = new Visual[] { visual,
+                new Visual(IDGenerator.generate(), false, 1, 1, 0, 0, 0) };
 
         supportedPixmapFormats = new PixmapFormat[] {
-            new PixmapFormat(1, 1, 32),
-            new PixmapFormat(24, 32, 32),
-            new PixmapFormat(32, 32, 32)
+                new PixmapFormat(1, 1, 32),
+                new PixmapFormat(24, 32, 32),
+                new PixmapFormat(32, 32, 32)
         };
     }
 
@@ -25,7 +26,8 @@ public class PixmapManager extends XResourceManager {
     }
 
     public Pixmap createPixmap(Drawable drawable) {
-        if (pixmaps.indexOfKey(drawable.id) >= 0) return null;
+        if (pixmaps.indexOfKey(drawable.id) >= 0)
+            return null;
         Pixmap pixmap = new Pixmap(drawable);
         pixmaps.put(drawable.id, pixmap);
         triggerOnCreateResourceListener(pixmap);
@@ -38,17 +40,21 @@ public class PixmapManager extends XResourceManager {
     }
 
     public Visual getVisualForDepth(byte depth) {
-        if (depth == visual.depth) return visual;
+        if (depth == visual.depth)
+            return visual;
         for (Visual visual : supportedVisuals) {
-            if (depth == visual.depth) return visual;
+            if (depth == visual.depth)
+                return visual;
         }
         return null;
     }
 
     public Visual getVisual(int id) {
-        if (id == visual.id) return visual;
+        if (id == visual.id)
+            return visual;
         for (Visual visual : supportedVisuals) {
-            if (id == visual.id && visual.displayable) return visual;
+            if (id == visual.id && visual.displayable)
+                return visual;
         }
         return null;
     }

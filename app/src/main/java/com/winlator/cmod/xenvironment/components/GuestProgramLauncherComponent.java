@@ -270,12 +270,13 @@ public class GuestProgramLauncherComponent extends EnvironmentComponent {
 
         EnvVars envVars = new EnvVars();
 
-        // --- Controller support: create shared memory files ---
-        final int enabledPlayerCount = ControllerManager.getInstance().getEnabledPlayerCount();
+        // --- Controller support: create shared memory files for all 4 slots ---
+        // Pre-create all files to support hot-plug (controllers connected mid-game)
+        final int MAX_PLAYERS = 4;
         File tmpDir = imageFs.getTmpDir();
         tmpDir.mkdirs();
         String tmpPath = tmpDir.getAbsolutePath();
-        for (int i = 0; i < enabledPlayerCount; i++) {
+        for (int i = 0; i < MAX_PLAYERS; i++) {
             String memPath = (i == 0)
                     ? tmpPath + "/gamepad.mem"
                     : tmpPath + "/gamepad" + i + ".mem";
@@ -286,7 +287,7 @@ public class GuestProgramLauncherComponent extends EnvironmentComponent {
                 Log.e("GuestProgramLauncher", "Failed to create mem file for player " + i, e);
             }
         }
-        envVars.put("EVSHIM_MAX_PLAYERS", String.valueOf(enabledPlayerCount));
+        envVars.put("EVSHIM_MAX_PLAYERS", String.valueOf(MAX_PLAYERS));
         envVars.put("EVSHIM_DATA_PATH", tmpPath);
 
         addBox64EnvVars(envVars, enableBox64Logs);
@@ -361,8 +362,22 @@ public class GuestProgramLauncherComponent extends EnvironmentComponent {
         }
 
         // Add evshim for controller support (creates virtual SDL joysticks)
-        String evshimPath = imageFs.getLibDir() + "/libevshim.so";
-        if (new File(evshimPath).exists()) {
+        // First check APK's native lib dir (where it's compiled), then imagefs (for
+        // custom builds)
+        String evshimPath = null;
+        String apkNativeLibDir = context.getApplicationInfo().nativeLibraryDir;
+        File evshimInApk = new File(apkNativeLibDir, "libevshim.so");
+        File evshimInImagefs = new File(imageFs.getLibDir(), "libevshim.so");
+
+        if (evshimInApk.exists()) {
+            evshimPath = evshimInApk.getAbsolutePath();
+            Log.d("GuestProgramLauncher", "Using evshim from APK: " + evshimPath);
+        } else if (evshimInImagefs.exists()) {
+            evshimPath = evshimInImagefs.getAbsolutePath();
+            Log.d("GuestProgramLauncher", "Using evshim from imagefs: " + evshimPath);
+        }
+
+        if (evshimPath != null) {
             ld_preload += (ld_preload.isEmpty() ? "" : ":") + evshimPath;
         }
 

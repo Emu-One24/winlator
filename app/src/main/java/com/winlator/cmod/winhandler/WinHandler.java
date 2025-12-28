@@ -4,6 +4,7 @@ import static com.winlator.cmod.inputcontrols.ExternalController.TRIGGER_IS_AXIS
 
 import android.content.SharedPreferences;
 import android.util.Log;
+import android.view.InputDevice;
 import android.view.KeyEvent;
 import android.view.MotionEvent;
 
@@ -724,6 +725,24 @@ public class WinHandler {
 
     public boolean onGenericMotionEvent(MotionEvent event) {
         boolean handled = false;
+
+        // Check if this is a gamepad/joystick event
+        if ((event.getSource() & InputDevice.SOURCE_GAMEPAD) == InputDevice.SOURCE_GAMEPAD ||
+                (event.getSource() & InputDevice.SOURCE_JOYSTICK) == InputDevice.SOURCE_JOYSTICK) {
+
+            // Handle controller reconnection: if device ID doesn't match, try to update
+            // currentController
+            if (currentController == null || currentController.getDeviceId() != event.getDeviceId()) {
+                // Try to get the controller for this event's device
+                ExternalController newController = ExternalController.getController(event.getDeviceId());
+                if (newController != null && newController.getDeviceId() == event.getDeviceId()) {
+                    currentController = newController;
+                    currentController.setTriggerType(triggerType);
+                    Log.d("WinHandler", "Controller reconnected with device ID: " + event.getDeviceId());
+                }
+            }
+        }
+
         if (currentController != null && currentController.getDeviceId() == event.getDeviceId()) {
             handled = currentController.updateStateFromMotionEvent(event);
             if (handled) {
