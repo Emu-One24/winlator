@@ -80,6 +80,7 @@ import com.winlator.cmod.math.XForm;
 import com.winlator.cmod.midi.MidiHandler;
 import com.winlator.cmod.midi.MidiManager;
 import com.winlator.cmod.renderer.VulkanRenderer;
+import com.winlator.cmod.services.NotificationService;
 import com.winlator.cmod.widget.FrameRating;
 import com.winlator.cmod.widget.InputControlsView;
 import com.winlator.cmod.widget.LogView;
@@ -529,7 +530,12 @@ public class XServerDisplayActivity extends AppCompatActivity implements Navigat
 
         // Check if a profile is defined by the shortcut
         String controlsProfile = shortcut != null ? shortcut.getExtra("controlsProfile", "") : "";
-
+        
+        if (!NotificationService.isRunning()) {
+            Intent notificationService = new Intent(this, NotificationService.class);
+            startForegroundService(notificationService);
+        }
+		
         Runnable runnable = () -> {
             setupUI();
             if (controlsProfile.isEmpty()) {
