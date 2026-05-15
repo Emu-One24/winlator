@@ -668,49 +668,29 @@ public class ControlElement {
                 currentPosition.y = boundingBox.top + deltaY * radius + radius;
                 float adjDeltaX = (Math.abs(deltaX) < Math.abs(deltaY) * STICK_CROSS_ZONE) ? 0 : deltaX;
                 float adjDeltaY = (Math.abs(deltaY) < Math.abs(deltaX) * STICK_CROSS_ZONE) ? 0 : deltaY;
-                
-                // Check if any binding is gamepad - if so, use unified stick input
-                Binding firstBinding = getBindingAt(0);
-                if (firstBinding.isGamepad()) {
-                    // Use radial deadzone to prevent angle snapping
-                    float magnitude = (float)Math.sqrt(adjDeltaX * adjDeltaX + adjDeltaY * adjDeltaY);
-                    
-                    float finalX = 0;
-                    float finalY = 0;
-                    
-                    if (magnitude > STICK_DEAD_ZONE) {
-                        // Normalize and apply sensitivity
-                        float normalizedX = adjDeltaX / magnitude;
-                        float normalizedY = adjDeltaY / magnitude;
-                        
-                        // Scale magnitude by sensitivity, respecting deadzone
-                        float scaledMagnitude = Math.max(0, magnitude - 0.01f) * STICK_SENSITIVITY;
-                        scaledMagnitude = Math.min(scaledMagnitude, 1.0f);
-                        
-                        finalX = normalizedX * scaledMagnitude;
-                        finalY = normalizedY * scaledMagnitude;
-                    }
-                    
-                    // Use unified stick input method - sets both X and Y together
-                    inputControlsView.handleStickInput(firstBinding, finalX, finalY);
-                    
-                    // Mark all directions as active for proper release handling
-                    for (byte i = 0; i < 4; i++) {
+                final boolean[] states = {adjDeltaY <= -STICK_DEAD_ZONE, adjDeltaX >= STICK_DEAD_ZONE, adjDeltaY >= STICK_DEAD_ZONE, adjDeltaX <= -STICK_DEAD_ZONE};
+
+                for (byte i = 0; i < 4; i++) {
+                    float value = i == 1 || i == 3 ? deltaX : deltaY;
+                    Binding binding = getBindingAt(i);
+                    if (binding.isGamepad()) {
+                        value = Mathf.clamp(Math.max(0, Math.abs(value) - 0.01f) * Mathf.sign(value) * STICK_SENSITIVITY, -1, 1);
+                        inputControlsView.handleInputEvent(binding, true, value);
                         this.states[i] = true;
                     }
-                } else {
+                    else {
                     // Fallback to per-direction handling for mouse/keyboard bindings
-                    final boolean[] states = {adjDeltaY <= -STICK_DEAD_ZONE, adjDeltaX >= STICK_DEAD_ZONE, adjDeltaY >= STICK_DEAD_ZONE, adjDeltaX <= -STICK_DEAD_ZONE};
-                    for (byte i = 0; i < 4; i++) {
-                        float value = i == 1 || i == 3 ? adjDeltaX : adjDeltaY;
-                        Binding binding = getBindingAt(i);
-                        boolean state = binding.isMouseMove() ? (states[i] || states[(i+2)%4]) : states[i];
-                        inputControlsView.handleInputEvent(binding, state, value);
-                        this.states[i] = state;
+                        final boolean[] states = {adjDeltaY <= -STICK_DEAD_ZONE, adjDeltaX >= STICK_DEAD_ZONE, adjDeltaY >= STICK_DEAD_ZONE, adjDeltaX <= -STICK_DEAD_ZONE};
+                        for (byte i = 0; i < 4; i++) {
+                            float value = i == 1 || i == 3 ? adjDeltaX : adjDeltaY;
+                            Binding binding = getBindingAt(i);
+                            boolean state = binding.isMouseMove() ? (states[i] || states[(i+2)%4]) : states[i];
+                            inputControlsView.handleInputEvent(binding, state, value);
+                            this.states[i] = state;
+                        }
                     }
+                    inputControlsView.invalidate();
                 }
-
-                inputControlsView.invalidate();
             }
             else if (type == Type.TRACKPAD) {
                 // Check if gamepad bindings - use unified handling
