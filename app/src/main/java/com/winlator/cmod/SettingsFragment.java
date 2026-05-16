@@ -331,6 +331,7 @@ public class SettingsFragment extends Fragment {
             editor.putBoolean("open_with_android_browser", cbOpenInBrowser.isChecked());
             editor.putBoolean("share_android_clipboard", cbShareClipboard.isChecked());
             editor.putBoolean("pause_resume_wine", cbPauseWine.isChecked());
+            editor.putBoolean("high_refresh_rate_mode", cbHighRefreshRate.isChecked());
 
             editor.putString("downloadable_contents_url", etDownloadableContentsURL.getText().toString());
 
