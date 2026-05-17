@@ -94,7 +94,7 @@ public class DXVKConfigDialog extends ContentDialog {
 
         KeyValueSet config = parseConfig(anchor.getTag());
         loadDxvkVersionSpinner(contentsManager, sDXVKVersion, isARM64EC);
-        loadVkd3dVersionSpinner(contentsManager, sVKD3DVersion);
+        loadVkd3dVersionSpinner(contentsManager, sVKD3DVersion, isARM64EC);
 
         ArrayAdapter<String> adapter = new ArrayAdapter<>(context, android.R.layout.simple_spinner_item, VKD3D_FEATURE_LEVEL);
         adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
@@ -268,7 +268,7 @@ public class DXVKConfigDialog extends ContentDialog {
             itemList.add(entryName.substring(firstDashIndex + 1));
         }
 
-        for (int i = 0; i < itemList.size(); i++) {
+        for (int i = itemList.size() - 1; i >= 0; i--) {
             if (itemList.get(i).contains("arm64ec") && !isARM64EC)
                 itemList.remove(i);
         }
@@ -277,7 +277,7 @@ public class DXVKConfigDialog extends ContentDialog {
         dxvkVersions = itemList;
     }
 
-    private void loadVkd3dVersionSpinner(ContentsManager manager, Spinner spinner) {
+    private void loadVkd3dVersionSpinner(ContentsManager manager, Spinner spinner, boolean isARM64EC) {
         List<VKD3DVersionItem> itemList = new ArrayList<>();
 
         // Add predefined versions
@@ -291,6 +291,12 @@ public class DXVKConfigDialog extends ContentDialog {
             String displayName = profile.verName;  // Display name for the spinner
             int versionCode = profile.verCode;     // Unique version code if available
             itemList.add(new VKD3DVersionItem(displayName, versionCode));
+        }
+
+        for (int i = itemList.size() - 1; i >= 0; i--) {
+            if (itemList.get(i).toString().contains("arm64ec") && !isARM64EC) {
+                itemList.remove(i);
+            }
         }
 
         ArrayAdapter<VKD3DVersionItem> adapter = new ArrayAdapter<>(context, android.R.layout.simple_spinner_dropdown_item, itemList);

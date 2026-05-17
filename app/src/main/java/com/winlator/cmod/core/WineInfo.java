@@ -18,7 +18,7 @@ import java.util.regex.Pattern;
 
 public class WineInfo implements Parcelable {
     public static final WineInfo MAIN_WINE_VERSION = new WineInfo("proton","9.0", "x86_64");
-    private static final Pattern pattern = Pattern.compile("^(wine|proton)\\-([0-9\\.]+)\\-?([0-9\\.]+)?\\-(x86|x86_64|arm64ec)$");
+    private static final Pattern pattern = Pattern.compile("(?i)(wine|proton).*?([0-9\\.]+).*?(x86|x86_64|arm64ec)");
     public final String version;
     public final String type;
     public String subversion;
@@ -143,7 +143,7 @@ public class WineInfo implements Parcelable {
             if (wineProfile != null && (wineProfile.type == ContentProfile.ContentType.CONTENT_TYPE_WINE || wineProfile.type == ContentProfile.ContentType.CONTENT_TYPE_PROTON))
                 path = contentsManager.getInstallDir(context, wineProfile).getPath();
 
-            return new WineInfo(matcher.group(1), matcher.group(2), matcher.group(4), path);
+            return new WineInfo(matcher.group(1).toLowerCase(), matcher.group(2), matcher.group(3).toLowerCase(), path);
         }
         else return new WineInfo(MAIN_WINE_VERSION.type, MAIN_WINE_VERSION.version, MAIN_WINE_VERSION.arch, imageFs.getRootDir().getPath() + "/opt/" + MAIN_WINE_VERSION.identifier());
     }

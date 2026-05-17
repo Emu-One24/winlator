@@ -417,6 +417,10 @@ public class GuestProgramLauncherComponent extends EnvironmentComponent {
         if (shortcut != null)
             emulator = shortcut.getExtra("emulator", container.getEmulator());
 
+        if (wineInfo.isArm64EC()) {
+            emulator = "fexcore";
+        }
+
         // Construct the command without Box64 to the Wine executable
         String command = "";
         String overriddenCommand = envVars.get("GUEST_PROGRAM_LAUNCHER_COMMAND");
