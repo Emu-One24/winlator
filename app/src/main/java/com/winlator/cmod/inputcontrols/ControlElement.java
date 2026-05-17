@@ -671,26 +671,19 @@ public class ControlElement {
                 final boolean[] states = {adjDeltaY <= -STICK_DEAD_ZONE, adjDeltaX >= STICK_DEAD_ZONE, adjDeltaY >= STICK_DEAD_ZONE, adjDeltaX <= -STICK_DEAD_ZONE};
 
                 for (byte i = 0; i < 4; i++) {
-                    float value = i == 1 || i == 3 ? deltaX : deltaY;
+                    float value = i == 1 || i == 3 ? adjDeltaX : adjDeltaY;
                     Binding binding = getBindingAt(i);
                     if (binding.isGamepad()) {
                         value = Mathf.clamp(Math.max(0, Math.abs(value) - 0.01f) * Mathf.sign(value) * STICK_SENSITIVITY, -1, 1);
                         inputControlsView.handleInputEvent(binding, true, value);
                         this.states[i] = true;
+                    } else {
+                        boolean state = binding.isMouseMove() ? (states[i] || states[(i+2)%4]) : states[i];
+                        inputControlsView.handleInputEvent(binding, state, value);
+                        this.states[i] = state;
                     }
-                    else {
-                    // Fallback to per-direction handling for mouse/keyboard bindings
-                        final boolean[] states = {adjDeltaY <= -STICK_DEAD_ZONE, adjDeltaX >= STICK_DEAD_ZONE, adjDeltaY >= STICK_DEAD_ZONE, adjDeltaX <= -STICK_DEAD_ZONE};
-                        for (byte i = 0; i < 4; i++) {
-                            float value = i == 1 || i == 3 ? adjDeltaX : adjDeltaY;
-                            Binding binding = getBindingAt(i);
-                            boolean state = binding.isMouseMove() ? (states[i] || states[(i+2)%4]) : states[i];
-                            inputControlsView.handleInputEvent(binding, state, value);
-                            this.states[i] = state;
-                        }
-                    }
-                    inputControlsView.invalidate();
                 }
+                inputControlsView.invalidate();
             }
             else if (type == Type.TRACKPAD) {
                 // Check if gamepad bindings - use unified handling
