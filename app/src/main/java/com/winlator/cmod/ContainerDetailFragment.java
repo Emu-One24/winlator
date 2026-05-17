@@ -1106,7 +1106,7 @@ public class ContainerDetailFragment extends Fragment {
 
     private void loadWineVersionSpinner(final View view, Spinner sWineVersion, Spinner sBox64Version) {
         final Context context = getContext();
-        // Wine version is always editable (both create and edit mode)
+        // Wine version is not editable after container creation
         //
         sWineVersion.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener() {
             @Override
@@ -1150,8 +1150,10 @@ public class ContainerDetailFragment extends Fragment {
             wineVersions.add(ContentsManager.getEntryName(profile));
         sWineVersion
                 .setAdapter(new ArrayAdapter<>(context, android.R.layout.simple_spinner_dropdown_item, wineVersions));
-        if (isEditMode())
+        if (isEditMode()) {
             AppUtils.setSpinnerSelectionFromValue(sWineVersion, container.getWineVersion());
+            sWineVersion.setEnabled(false);
+        }
     }
 
     public String getControllerMapping(View view) {
