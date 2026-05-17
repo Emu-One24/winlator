@@ -302,6 +302,9 @@ public class SettingsFragment extends Fragment {
         
         final CheckBox cbPauseWine = view.findViewById(R.id.CBPauseResumeWine);
         cbPauseWine.setChecked(preferences.getBoolean("pause_resume_wine", true));
+        
+        final CheckBox cbHighRefreshRate = view.findViewById(R.id.CBHighRefreshRate);
+        cbHighRefreshRate.setChecked(preferences.getBoolean("high_refresh_rate_mode", false));
 
         final EditText etDownloadableContentsURL = view.findViewById(R.id.ETDownloadableContentsURL);
         etDownloadableContentsURL.setText(preferences.getString("downloadable_contents_url", ContentsManager.REMOTE_PROFILES));
