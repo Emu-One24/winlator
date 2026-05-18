@@ -890,6 +890,10 @@ public class XServerDisplayActivity extends AppCompatActivity implements Navigat
                 }
                 drawerLayout.closeDrawers();
                 break;
+			case R.id.main_menu_vibration:
+                showVibrationDialog();
+                drawerLayout.closeDrawers();
+                break;
             case R.id.main_menu_logs:
                 debugDialog.show();
                 drawerLayout.closeDrawers();
