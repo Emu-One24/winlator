@@ -668,16 +668,20 @@ public class ControlElement {
                 currentPosition.y = boundingBox.top + deltaY * radius + radius;
                 float adjDeltaX = (Math.abs(deltaX) < Math.abs(deltaY) * STICK_CROSS_ZONE) ? 0 : deltaX;
                 float adjDeltaY = (Math.abs(deltaY) < Math.abs(deltaX) * STICK_CROSS_ZONE) ? 0 : deltaY;
-                final boolean[] states = {adjDeltaY <= -STICK_DEAD_ZONE, adjDeltaX >= STICK_DEAD_ZONE, adjDeltaY >= STICK_DEAD_ZONE, adjDeltaX <= -STICK_DEAD_ZONE};
-
-                for (byte i = 0; i < 4; i++) {
-                    float value = i == 1 || i == 3 ? adjDeltaX : adjDeltaY;
-                    Binding binding = getBindingAt(i);
-                    if (binding.isGamepad()) {
-                        value = Mathf.clamp(Math.max(0, Math.abs(value) - 0.01f) * Mathf.sign(value) * STICK_SENSITIVITY, -1, 1);
-                        inputControlsView.handleInputEvent(binding, true, value);
+                
+                Binding firstBinding = getBindingAt(0);
+                if (firstBinding.isGamepad()) {
+                    float valueX = Mathf.clamp(Math.max(0, Math.abs(adjDeltaX) - 0.01f) * Mathf.sign(adjDeltaX) * STICK_SENSITIVITY, -1, 1);
+                    float valueY = Mathf.clamp(Math.max(0, Math.abs(adjDeltaY) - 0.01f) * Mathf.sign(adjDeltaY) * STICK_SENSITIVITY, -1, 1);
+                    inputControlsView.handleStickInput(firstBinding, valueX, valueY);
+                    for (byte i = 0; i < 4; i++) {
                         this.states[i] = true;
-                    } else {
+                    }
+                } else {
+                    final boolean[] states = {adjDeltaY <= -STICK_DEAD_ZONE, adjDeltaX >= STICK_DEAD_ZONE, adjDeltaY >= STICK_DEAD_ZONE, adjDeltaX <= -STICK_DEAD_ZONE};
+                    for (byte i = 0; i < 4; i++) {
+                        float value = i == 1 || i == 3 ? adjDeltaX : adjDeltaY;
+                        Binding binding = getBindingAt(i);
                         boolean state = binding.isMouseMove() ? (states[i] || states[(i+2)%4]) : states[i];
                         inputControlsView.handleInputEvent(binding, state, value);
                         this.states[i] = state;
