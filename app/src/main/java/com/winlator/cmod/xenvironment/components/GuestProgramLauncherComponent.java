@@ -7,6 +7,7 @@ import android.content.pm.ApplicationInfo;
 import android.net.ConnectivityManager;
 import android.os.Process;
 import android.util.Log;
+import java.util.Map;
 
 import androidx.preference.PreferenceManager;
 
@@ -43,6 +44,7 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.StandardCopyOption;
 import java.util.ArrayList;
+import java.util.concurrent.CountDownLatch;
 
 public class GuestProgramLauncherComponent extends EnvironmentComponent {
     private String guestExecutable;
@@ -58,6 +60,7 @@ public class GuestProgramLauncherComponent extends EnvironmentComponent {
     private final ContentProfile wineProfile;
     private Container container;
     private final Shortcut shortcut;
+    private boolean prepared = false;
 
     public void setWineInfo(WineInfo wineInfo) {
         this.wineInfo = wineInfo;
@@ -144,13 +147,21 @@ public class GuestProgramLauncherComponent extends EnvironmentComponent {
         this.shortcut = shortcut;
     }
 
-    @Override
-    public void start() {
+    public void prepare() {
         synchronized (lock) {
+            if (prepared) return;
             if (wineInfo.isArm64EC())
                 extractEmulatorsDlls();
             else
                 extractBox64Files();
+            prepared = true;
+        }
+    }
+
+    @Override
+    public void start() {
+        synchronized (lock) {
+            prepare();
             checkDependencies();
             pid = execGuestProgram();
         }
@@ -456,6 +467,256 @@ public class GuestProgramLauncherComponent extends EnvironmentComponent {
                 terminationCallback.call(status);
         });
     }
+
+    public int execWineCommand(String wineCommand, Map<String, String> envOverrides, Callback<Integer> terminationCallback) {
+        Context context = environment.getContext();
+        ImageFs imageFs = environment.getImageFs();
+        File rootDir = imageFs.getRootDir();
+
+        SharedPreferences preferences = PreferenceManager.getDefaultSharedPreferences(context);
+        boolean enableBox64Logs = preferences.getBoolean("enable_box64_logs", false);
+        boolean openWithAndroidBrowser = preferences.getBoolean("open_with_android_browser", false);
+        boolean shareAndroidClipboard = preferences.getBoolean("share_android_clipboard", false);
+
+        EnvVars envVars = new EnvVars();
+
+        if (openWithAndroidBrowser)
+            envVars.put("WINE_OPEN_WITH_ANDROID_BROWSER", "1");
+        if (shareAndroidClipboard) {
+            envVars.put("WINE_FROM_ANDROID_CLIPBOARD", "1");
+            envVars.put("WINE_TO_ANDROID_CLIPBOARD", "1");
+        }
+
+        addBox64EnvVars(envVars, enableBox64Logs);
+        envVars.putAll(FEXCorePresetManager.getEnvVars(context, fexcorePreset));
+
+        String renderer = GPUInformation.getRenderer(null, null);
+
+        if (renderer.contains("Mali"))
+            envVars.put("BOX64_MMAP32", "0");
+
+        if ("1".equals(envVars.get("BOX64_MMAP32")) && !wineInfo.isArm64EC()) {
+            envVars.put("WRAPPER_DISABLE_PLACED", "1");
+        }
+
+        // Setting up essential environment variables for Wine
+        envVars.put("HOME", imageFs.home_path);
+        envVars.put("USER", ImageFs.USER);
+        envVars.put("TMPDIR", rootDir.getPath() + "/usr/tmp");
+        envVars.put("XDG_DATA_DIRS", rootDir.getPath() + "/usr/share");
+        envVars.put("LD_LIBRARY_PATH", rootDir.getPath() + "/usr/lib" + ":" + "/system/lib64");
+        envVars.put("XDG_CONFIG_DIRS", rootDir.getPath() + "/usr/etc/xdg");
+        envVars.put("GST_PLUGIN_PATH", rootDir.getPath() + "/usr/lib/gstreamer-1.0");
+        envVars.put("FONTCONFIG_PATH", rootDir.getPath() + "/usr/etc/fonts");
+        envVars.put("VK_LAYER_PATH", rootDir.getPath() + "/usr/share/vulkan/implicit_layer.d" + ":" + rootDir.getPath() + "/usr/share/vulkan/explicit_layer.d");
+        envVars.put("WRAPPER_LAYER_PATH", rootDir.getPath() + "/usr/lib");
+        envVars.put("WRAPPER_CACHE_PATH", rootDir.getPath() + "/usr/var/cache");
+        envVars.put("WINE_NO_DUPLICATE_EXPLORER", "1");
+        envVars.put("PREFIX", rootDir.getPath() + "/usr");
+        envVars.put("DISPLAY", ":0");
+        envVars.put("WINE_DISABLE_FULLSCREEN_HACK", "1");
+        envVars.put("GST_PLUGIN_FEATURE_RANK", "ximagesink:3000");
+        envVars.put("ALSA_CONFIG_PATH", rootDir.getPath() + "/usr/share/alsa/alsa.conf" + ":" + rootDir.getPath() + "/usr/etc/alsa/conf.d/android_aserver.conf");
+        envVars.put("ALSA_PLUGIN_DIR", rootDir.getPath() + "/usr/lib/alsa-lib");
+        envVars.put("OPENSSL_CONF", rootDir.getPath() + "/usr/etc/tls/openssl.cnf");
+        envVars.put("SSL_CERT_FILE", rootDir.getPath() + "/usr/etc/tls/cert.pem");
+        envVars.put("SSL_CERT_DIR", rootDir.getPath() + "/usr/etc/tls/certs");
+        envVars.put("WINE_X11FORCEGLX", "1");
+        envVars.put("WINE_GST_NO_GL", "1");
+        envVars.put("SteamGameId", "0");
+        envVars.put("PROTON_AUDIO_CONVERT", "0");
+        envVars.put("PROTON_VIDEO_CONVERT", "0");
+        envVars.put("PROTON_DEMUX", "0");
+
+        String winePath = imageFs.getWinePath() + "/bin";
+        envVars.put("PATH", winePath + ":" + rootDir.getPath() + "/usr/bin");
+
+        envVars.put("ANDROID_SYSVSHM_SERVER", rootDir.getPath() + UnixSocketConfig.SYSVSHM_SERVER_PATH);
+
+        String primaryDNS = "8.8.4.4";
+        ConnectivityManager connectivityManager = (ConnectivityManager) context.getSystemService(Service.CONNECTIVITY_SERVICE);
+        if (connectivityManager.getActiveNetwork() != null) {
+            ArrayList<InetAddress> dnsServers = new ArrayList<>(connectivityManager.getLinkProperties(connectivityManager.getActiveNetwork()).getDnsServers());
+            primaryDNS = dnsServers.get(0).toString().substring(1);
+        }
+        envVars.put("ANDROID_RESOLV_DNS", primaryDNS);
+        envVars.put("WINE_NEW_NDIS", "1");
+
+        String ld_preload = "";
+        if ((new File(imageFs.getLibDir(), "libandroid-sysvshm.so")).exists()){
+            ld_preload = imageFs.getLibDir() + "/libandroid-sysvshm.so";
+        }
+
+        File fakeinputDest = new File(imageFs.getLibDir(), "libfakeinput.so");
+        if (fakeinputDest.exists()) {
+            if (!ld_preload.isEmpty()) ld_preload += ":";
+            ld_preload += fakeinputDest.getAbsolutePath();
+        }
+
+        File[] jpegCandidates = new File[] {
+            new File("/system/lib64/libjpeg.so"),
+            new File("/system_ext/lib64/libjpeg.so"),
+        };
+        ld_preload = appendFirstExistingPreload(ld_preload, jpegCandidates);
+
+        File[] cryptoCandidates = new File[] {
+            new File("/system/lib64/libcrypto.so"),
+            new File("/system_ext/lib64/libcrypto.so"),
+            new File(imageFs.getLibDir(), "libcrypto.so.3"),
+        };
+        ld_preload = appendFirstExistingPreload(ld_preload, cryptoCandidates);
+
+        File devInputDir = new File(imageFs.getRootDir(), "dev/input");
+        envVars.put("FAKE_EVDEV_DIR", devInputDir.getAbsolutePath());
+        envVars.put("FAKE_EVDEV_VIBRATION", "1");
+        envVars.put("LD_PRELOAD", ld_preload);
+
+        if (this.envVars != null) {
+            envVars.putAll(this.envVars);
+        }
+
+        if (envOverrides != null) {
+            for (Map.Entry<String, String> entry : envOverrides.entrySet()) {
+                envVars.put(entry.getKey(), entry.getValue());
+            }
+        }
+
+        String emulator = container.getEmulator();
+        if (shortcut != null)
+            emulator = shortcut.getExtra("emulator", container.getEmulator());
+
+        if (wineInfo.isArm64EC()) {
+            emulator = "fexcore";
+        }
+
+        String command = "";
+        if (wineInfo.isArm64EC()) {
+            command = winePath + "/" + wineCommand;
+            if (emulator.toLowerCase().equals("fexcore"))
+                envVars.put("HODLL", "libwow64fex.dll");
+            else
+                envVars.put("HODLL", "wowbox64.dll");
+        } else {
+            command = imageFs.getBinDir() + "/box64 " + wineCommand;
+        }
+
+        File box64File = new File(rootDir, "/usr/bin/box64");
+        if (box64File.exists()) {
+            FileUtils.chmod(box64File, 0755);
+        }
+
+        return ProcessHelper.exec(command, envVars.toStringArray(), rootDir, terminationCallback);
+    }
+
+    public void killWineServer() {
+        ImageFs imageFs = environment.getImageFs();
+        File rootDir = imageFs.getRootDir();
+        String wineServerBin = imageFs.getWinePath() + "/bin/wineserver";
+
+        com.winlator.cmod.core.EnvVars envVars = new com.winlator.cmod.core.EnvVars();
+        envVars.put("HOME", imageFs.home_path);
+        envVars.put("USER", ImageFs.USER);
+        envVars.put("TMPDIR", rootDir.getPath() + "/usr/tmp");
+        envVars.put("PATH", imageFs.getWinePath() + "/bin:" + rootDir.getPath() + "/usr/bin:/usr/bin:/bin");
+        envVars.put("WINEPREFIX", imageFs.wineprefix);
+        envVars.put("WINESERVER", imageFs.getWinePath() + "/bin/wineserver");
+
+        boolean wrapperSucceeded = false;
+        CountDownLatch latch = new CountDownLatch(1);
+        final int[] exitStatus = {-1};
+        ProcessHelper.exec(wineServerBin + " -k", envVars.toStringArray(), rootDir, (status) -> {
+            exitStatus[0] = status;
+            latch.countDown();
+        });
+        try {
+            wrapperSucceeded = latch.await(2, java.util.concurrent.TimeUnit.SECONDS) && exitStatus[0] == 0;
+        } catch (InterruptedException ignored) {}
+
+        if (!wrapperSucceeded) {
+            killWineServerProcesses(rootDir.getPath());
+        }
+
+        killAllGuestProcesses(rootDir.getPath());
+
+        try { Thread.sleep(500); } catch (InterruptedException ignored) {}
+    }
+
+    private void killAllGuestProcesses(String rootPath) {
+        java.io.File proc = new java.io.File("/proc");
+        String[] pids = proc.list((dir, name) -> name.matches("[0-9]+"));
+        if (pids == null) return;
+
+        int myPid = android.os.Process.myPid();
+
+        for (String pidStr : pids) {
+            try {
+                int pid = Integer.parseInt(pidStr);
+                if (pid == myPid) continue;
+
+                java.io.File cmdlineFile = new java.io.File("/proc/" + pidStr + "/cmdline");
+                if (!cmdlineFile.exists()) continue;
+                byte[] bytes = java.nio.file.Files.readAllBytes(cmdlineFile.toPath());
+                String cmdline = new String(bytes).replace('\0', ' ').trim();
+                
+                if (cmdline.contains(rootPath)) {
+                    android.os.Process.sendSignal(pid, 15);
+                }
+            } catch (Exception ignored) {}
+        }
+
+        try { Thread.sleep(500); } catch (InterruptedException ignored) {}
+
+        for (String pidStr : pids) {
+            try {
+                int pid = Integer.parseInt(pidStr);
+                if (pid == myPid) continue;
+
+                java.io.File cmdlineFile = new java.io.File("/proc/" + pidStr + "/cmdline");
+                if (!cmdlineFile.exists()) continue;
+                byte[] bytes = java.nio.file.Files.readAllBytes(cmdlineFile.toPath());
+                String cmdline = new String(bytes).replace('\0', ' ').trim();
+                
+                if (cmdline.contains(rootPath)) {
+                    android.os.Process.sendSignal(pid, 9);
+                }
+            } catch (Exception ignored) {}
+        }
+    }
+
+    private void killWineServerProcesses(String rootPath) {
+        java.io.File proc = new java.io.File("/proc");
+        String[] pids = proc.list((dir, name) -> name.matches("[0-9]+"));
+        if (pids == null) return;
+
+        for (String pidStr : pids) {
+            try {
+                java.io.File cmdlineFile = new java.io.File("/proc/" + pidStr + "/cmdline");
+                if (!cmdlineFile.exists()) continue;
+                byte[] bytes = java.nio.file.Files.readAllBytes(cmdlineFile.toPath());
+                String cmdline = new String(bytes).replace('\0', ' ').trim();
+                if (cmdline.contains("wineserver") && cmdline.contains(rootPath)) {
+                    int pid = Integer.parseInt(pidStr);
+                    android.os.Process.sendSignal(pid, 15);
+                }
+            } catch (Exception ignored) {}
+        }
+
+        try { Thread.sleep(500); } catch (InterruptedException ignored) {}
+
+        for (String pidStr : pids) {
+            try {
+                java.io.File cmdlineFile = new java.io.File("/proc/" + pidStr + "/cmdline");
+                if (!cmdlineFile.exists()) continue;
+                byte[] bytes = java.nio.file.Files.readAllBytes(cmdlineFile.toPath());
+                String cmdline = new String(bytes).replace('\0', ' ').trim();
+                if (cmdline.contains("wineserver") && cmdline.contains(rootPath)) {
+                    int pid = Integer.parseInt(pidStr);
+                    android.os.Process.sendSignal(pid, 9);
+                }
+            } catch (Exception ignored) {}
+        }
+    }
+
 
     private void addBox64EnvVars(EnvVars envVars, boolean enableLogs) {
         envVars.put("BOX64_NOBANNER", ProcessHelper.PRINT_DEBUG && enableLogs ? "0" : "1");

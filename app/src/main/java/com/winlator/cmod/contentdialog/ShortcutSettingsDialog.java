@@ -8,6 +8,7 @@ import android.graphics.Color;
 import android.graphics.drawable.Icon;
 import android.util.Log;
 import android.view.Menu;
+import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.AdapterView;
@@ -30,6 +31,8 @@ import com.winlator.cmod.ShortcutsFragment;
 import com.winlator.cmod.box64.Box64PresetManager;
 import com.winlator.cmod.container.ContainerManager;
 import com.winlator.cmod.container.Shortcut;
+import com.winlator.cmod.dependency.Dependency;
+import com.winlator.cmod.dependency.DependencyManager;
 import com.winlator.cmod.contents.ContentProfile;
 import com.winlator.cmod.contents.ContentsManager;
 import com.winlator.cmod.core.AppUtils;
@@ -50,6 +53,7 @@ import com.winlator.cmod.winhandler.WinHandler;
 import java.io.File;
 import java.lang.reflect.Field;
 import java.util.ArrayList;
+import java.util.Map;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Locale;
@@ -311,8 +315,9 @@ public class ShortcutSettingsDialog extends ContentDialog {
                 shortcut.getExtra("wincomponents", shortcut.container.getWinComponents()), isDarkMode);
 
         final EnvVarsView envVarsView = createEnvVarsTab();
+        createDependenciesTab(isDarkMode);
 
-        AppUtils.setupTabLayout(getContentView(), R.id.TabLayout, R.id.LLTabWinComponents, R.id.LLTabEnvVars, R.id.LLTabAdvanced);
+        AppUtils.setupTabLayout(getContentView(), R.id.TabLayout, R.id.LLTabWinComponents, R.id.LLTabEnvVars, R.id.LLTabAdvanced, R.id.LLTabDependencies);
 
         TabLayout tabLayout = findViewById(R.id.TabLayout);
 
@@ -479,6 +484,7 @@ public class ShortcutSettingsDialog extends ContentDialog {
 
                 String cpuList = cpuListView.getCheckedCPUListAsString();
                 shortcut.putExtra("cpuList", cpuList);
+                shortcut.putExtra("dependencies", getSelectedDependencies());
 
                 // Save all changes to the shortcut
                 shortcut.saveData();
@@ -772,5 +778,91 @@ public class ShortcutSettingsDialog extends ContentDialog {
 
         AppUtils.setSpinnerSelectionFromIdentifier(sGraphicsDriver, selectedGraphicsDriver);
         update.run();
+    }
+
+    private void createDependenciesTab(boolean isDarkMode) {
+        Context context = getContext();
+        DependencyManager manager = new DependencyManager(context);
+        Map<String, Dependency> allDeps = manager.getDependencies();
+
+        String selectedDepsStr = shortcut.getExtra("dependencies");
+        final ArrayList<String> selectedDepsList = new ArrayList<>();
+        if (selectedDepsStr != null && !selectedDepsStr.isEmpty()) {
+            for (String s : selectedDepsStr.split(",")) {
+                String t = s.trim();
+                if (!t.isEmpty()) selectedDepsList.add(t);
+            }
+        }
+
+        loadDependencyChips(allDeps, selectedDepsList);
+    }
+
+    @SuppressWarnings("unchecked")
+    private void loadDependencyChips(Map<String, Dependency> allDeps, ArrayList<String> selectedDepsList) {
+        Context context = getContext();
+        LinearLayout containerLayout = findViewById(R.id.LLDependencies);
+        containerLayout.removeAllViews();
+        containerLayout.setTag(selectedDepsList);
+
+        LayoutInflater inflater = LayoutInflater.from(context);
+
+        // ── Header row: Add button only ──
+        View headerView = inflater.inflate(R.layout.wine_debug_channel_list_item, containerLayout, false);
+        headerView.getLayoutParams().height = ViewGroup.LayoutParams.WRAP_CONTENT;
+        if (headerView.getLayoutParams() instanceof ViewGroup.MarginLayoutParams) {
+            ((ViewGroup.MarginLayoutParams) headerView.getLayoutParams()).bottomMargin = (int) com.winlator.cmod.core.UnitUtils.dpToPx(6);
+        }
+        headerView.findViewById(R.id.TextView).setVisibility(View.GONE);
+        headerView.findViewById(R.id.BTRemove).setVisibility(View.GONE);
+        View addButton = headerView.findViewById(R.id.BTAdd);
+        addButton.setVisibility(View.VISIBLE);
+        addButton.setOnClickListener((v) -> {
+            List<String> sortedKeys = new ArrayList<>(allDeps.keySet());
+            java.util.Collections.sort(sortedKeys);
+            String[] items = new String[sortedKeys.size()];
+            for (int i = 0; i < sortedKeys.size(); i++) {
+                Dependency dep = allDeps.get(sortedKeys.get(i));
+                items[i] = dep != null ? dep.getName() : sortedKeys.get(i);
+            }
+            ContentDialog.showMultipleChoiceList(context, R.string.dependencies, items, (selectedPositions) -> {
+                for (int pos : selectedPositions) {
+                    String id = sortedKeys.get(pos);
+                    if (!selectedDepsList.contains(id)) selectedDepsList.add(id);
+                }
+                loadDependencyChips(allDeps, selectedDepsList);
+            });
+        });
+        containerLayout.addView(headerView);
+
+        // ── One chip row per selected dependency ──
+        for (int i = 0; i < selectedDepsList.size(); i++) {
+            String id = selectedDepsList.get(i);
+            Dependency dep = allDeps.get(id);
+            String displayName = dep != null ? dep.getName() : id;
+
+            View itemView = inflater.inflate(R.layout.wine_debug_channel_list_item, containerLayout, false);
+            itemView.getLayoutParams().height = ViewGroup.LayoutParams.WRAP_CONTENT;
+            if (itemView.getLayoutParams() instanceof ViewGroup.MarginLayoutParams) {
+                ((ViewGroup.MarginLayoutParams) itemView.getLayoutParams()).bottomMargin = (int) com.winlator.cmod.core.UnitUtils.dpToPx(6);
+            }
+            ((TextView) itemView.findViewById(R.id.TextView)).setText(displayName);
+
+            final int index = i;
+            itemView.findViewById(R.id.BTRemove).setOnClickListener((vv) -> {
+                selectedDepsList.remove(index);
+                loadDependencyChips(allDeps, selectedDepsList);
+            });
+            containerLayout.addView(itemView);
+        }
+    }
+
+    @SuppressWarnings("unchecked")
+    private String getSelectedDependencies() {
+        LinearLayout containerLayout = findViewById(R.id.LLDependencies);
+        Object tag = containerLayout.getTag();
+        if (tag instanceof ArrayList) {
+            return String.join(",", (ArrayList<String>) tag);
+        }
+        return "";
     }
 }

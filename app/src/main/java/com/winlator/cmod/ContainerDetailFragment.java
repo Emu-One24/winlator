@@ -37,6 +37,8 @@ import com.winlator.cmod.box64.Box64Preset;
 import com.winlator.cmod.box64.Box64PresetManager;
 import com.winlator.cmod.container.Container;
 import com.winlator.cmod.container.ContainerManager;
+import com.winlator.cmod.dependency.Dependency;
+import com.winlator.cmod.dependency.DependencyManager;
 import com.winlator.cmod.contentdialog.AddEnvVarDialog;
 import com.winlator.cmod.contentdialog.ContentDialog;
 import com.winlator.cmod.contentdialog.DXVKConfigDialog;
@@ -75,6 +77,7 @@ import org.json.JSONObject;
 
 import java.io.File;
 import java.util.ArrayList;
+import java.util.Map;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
@@ -563,9 +566,10 @@ public class ContainerDetailFragment extends Fragment {
         final EnvVarsView envVarsView = createEnvVarsTab(view);
         createWinComponentsTab(view, isEditMode() ? container.getWinComponents() : Container.DEFAULT_WINCOMPONENTS);
         createDrivesTab(view);
+        createDependenciesTab(view);
 
         AppUtils.setupTabLayout(view, R.id.TabLayout, R.id.LLTabWineConfiguration, R.id.LLTabWinComponents,
-                R.id.LLTabEnvVars, R.id.LLTabDrives, R.id.LLTabAdvanced, R.id.LLTabXR);
+                R.id.LLTabEnvVars, R.id.LLTabDrives, R.id.LLTabAdvanced, R.id.LLTabXR, R.id.LLTabDependencies);
 
         TabLayout tabLayout = view.findViewById(R.id.TabLayout);
 
@@ -656,12 +660,16 @@ public class ContainerDetailFragment extends Fragment {
                     container.setLC_ALL(lc_all);
                     container.setPrimaryController(primaryController);
                     container.setControllerMapping(controllerMapping);
+                    container.putExtra("dependencies", getSelectedDependencies(view));
                     container.saveData();
                     saveWineRegistryKeys(view);
                     getActivity().onBackPressed();
                 } else {
                     // Create new container with specified properties
                     JSONObject data = new JSONObject();
+                    JSONObject extraData = new JSONObject();
+                    extraData.put("dependencies", getSelectedDependencies(view));
+                    data.put("extraData", extraData);
                     data.put("name", name);
                     data.put("screenSize", screenSize);
                     data.put("envVars", envVars);
@@ -1229,6 +1237,84 @@ public class ContainerDetailFragment extends Fragment {
         else
             AppUtils.setSpinnerSelectionFromValue(spinner,
                     (isArm64EC) ? DefaultVersion.WOWBOX64 : DefaultVersion.BOX64);
+    }
+
+    private void createDependenciesTab(View view) {
+        DependencyManager manager = new DependencyManager(view.getContext());
+        Map<String, Dependency> allDeps = manager.getDependencies();
+
+        String selectedDepsStr = isEditMode() ? container.getExtra("dependencies") : "";
+        final ArrayList<String> selectedDepsList = new ArrayList<>();
+        if (selectedDepsStr != null && !selectedDepsStr.isEmpty()) {
+            for (String s : selectedDepsStr.split(",")) {
+                String t = s.trim();
+                if (!t.isEmpty()) selectedDepsList.add(t);
+            }
+        }
+
+        loadDependencyChips(view, allDeps, selectedDepsList);
+    }
+
+    @SuppressWarnings("unchecked")
+    private void loadDependencyChips(View view, Map<String, Dependency> allDeps, ArrayList<String> selectedDepsList) {
+        Context context = view.getContext();
+        LinearLayout containerLayout = view.findViewById(R.id.LLDependencies);
+        containerLayout.removeAllViews();
+        // Store state so getSelectedDependencies() can read it without walking views
+        containerLayout.setTag(selectedDepsList);
+
+        LayoutInflater inflater = LayoutInflater.from(context);
+
+        // ── Header row: Add button only (same pattern as Wine debug channels) ──
+        View headerView = inflater.inflate(R.layout.wine_debug_channel_list_item, containerLayout, false);
+        headerView.findViewById(R.id.TextView).setVisibility(View.GONE);
+        headerView.findViewById(R.id.BTRemove).setVisibility(View.GONE);
+        View addButton = headerView.findViewById(R.id.BTAdd);
+        addButton.setVisibility(View.VISIBLE);
+        addButton.setOnClickListener((v) -> {
+            List<String> sortedKeys = new ArrayList<>(allDeps.keySet());
+            java.util.Collections.sort(sortedKeys);
+            String[] items = new String[sortedKeys.size()];
+            for (int i = 0; i < sortedKeys.size(); i++) {
+                Dependency dep = allDeps.get(sortedKeys.get(i));
+                items[i] = dep != null ? dep.getName() : sortedKeys.get(i);
+            }
+            ContentDialog.showMultipleChoiceList(context, R.string.dependencies, items, (selectedPositions) -> {
+                for (int pos : selectedPositions) {
+                    String id = sortedKeys.get(pos);
+                    if (!selectedDepsList.contains(id)) selectedDepsList.add(id);
+                }
+                loadDependencyChips(view, allDeps, selectedDepsList);
+            });
+        });
+        containerLayout.addView(headerView);
+
+        // ── One chip row per selected dependency ──
+        for (int i = 0; i < selectedDepsList.size(); i++) {
+            String id = selectedDepsList.get(i);
+            Dependency dep = allDeps.get(id);
+            String displayName = dep != null ? dep.getName() : id;
+
+            View itemView = inflater.inflate(R.layout.wine_debug_channel_list_item, containerLayout, false);
+            ((TextView) itemView.findViewById(R.id.TextView)).setText(displayName);
+
+            final int index = i;
+            itemView.findViewById(R.id.BTRemove).setOnClickListener((v) -> {
+                selectedDepsList.remove(index);
+                loadDependencyChips(view, allDeps, selectedDepsList);
+            });
+            containerLayout.addView(itemView);
+        }
+    }
+
+    @SuppressWarnings("unchecked")
+    private String getSelectedDependencies(View view) {
+        LinearLayout containerLayout = view.findViewById(R.id.LLDependencies);
+        Object tag = containerLayout.getTag();
+        if (tag instanceof ArrayList) {
+            return String.join(",", (ArrayList<String>) tag);
+        }
+        return "";
     }
 
 }

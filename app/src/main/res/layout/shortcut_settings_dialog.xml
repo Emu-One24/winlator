@@ -319,6 +319,11 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:text="@string/advanced" />
+
+            <com.google.android.material.tabs.TabItem
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="@string/dependencies" />
         </com.google.android.material.tabs.TabLayout>
 
         <LinearLayout
@@ -737,6 +742,28 @@
                 android:gravity="center_horizontal"
                 android:layout_marginTop="4dp" />
 
+        </LinearLayout>
+
+        <LinearLayout
+            android:id="@+id/LLTabDependencies"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:visibility="gone">
+
+            <ScrollView
+                android:layout_width="match_parent"
+                android:layout_height="250dp"
+                android:layout_marginTop="8dp"
+                android:background="#15ffffff"
+                android:padding="8dp">
+
+                <LinearLayout
+                    android:id="@+id/LLDependencies"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical" />
+            </ScrollView>
         </LinearLayout>
     </LinearLayout>
 </ScrollView>

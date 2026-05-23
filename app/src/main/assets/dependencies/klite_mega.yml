@@ -1,0 +1,14 @@
+Name: klite_mega
+Description: K-Lite Codec Pack Mega 19.7.0
+Provider: Codec Guide
+License: Freeware
+License_url: https://codecguide.com/
+Dependencies: []
+Steps:
+  - action: install_exe
+    file_name: K-Lite_Codec_Pack_1970_Mega.exe
+    url: https://files2.codecguide.com/K-Lite_Codec_Pack_1970_Mega.exe
+    rename: K-Lite_Codec_Pack_1970_Mega.exe
+    file_checksum: 04003e56a3e2d9539e570c92ffd8ff66
+    file_size: 67989504
+    arguments: /silent /norestart /suppressmsgboxes

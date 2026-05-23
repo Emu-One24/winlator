@@ -49,6 +49,8 @@ public class VulkanRenderer implements WindowManager.OnWindowModificationListene
     private Drawable rootCursorDrawable;
     private Cursor lastCursor = null;
     private boolean xRenderingPausedForScanout = false;
+    private Surface savedSurface = null;
+    private boolean renderingEnabled = true;
 
     private volatile ArrayList<RenderableWindow> renderableWindows = new ArrayList<>();
     private android.view.SurfaceControl scanoutGameSC;
@@ -114,6 +116,31 @@ public class VulkanRenderer implements WindowManager.OnWindowModificationListene
     }
 
     public void onSurfaceCreated(Surface surface) {
+        synchronized (lock) {
+            savedSurface = surface;
+            if (renderingEnabled) {
+                triggerSurfaceInit(surface);
+            }
+        }
+    }
+
+    public void setRenderingEnabled(boolean enabled) {
+        synchronized (lock) {
+            if (this.renderingEnabled == enabled) return;
+            this.renderingEnabled = enabled;
+            if (enabled && savedSurface != null) {
+                triggerSurfaceInit(savedSurface);
+            } else if (!enabled) {
+                if (nativeHandle != 0) {
+                    nativeDestroy(nativeHandle);
+                    nativeHandle = 0;
+                    initComplete = false;
+                }
+            }
+        }
+    }
+
+    private void triggerSurfaceInit(final Surface surface) {
         if (!gpuImageChecked) { GPUImage.checkIsSupported(); gpuImageChecked = true; }
         if (initExecutor != null) {
             initExecutor.shutdownNow();
@@ -123,8 +150,8 @@ public class VulkanRenderer implements WindowManager.OnWindowModificationListene
         initExecutor = java.util.concurrent.Executors.newSingleThreadExecutor();
         initExecutor.execute(() -> {
             synchronized (lock) {
+                if (!renderingEnabled) return;
                 if (nativeHandle != 0) {
-
                     boolean ok = nativeReattachSurface(nativeHandle, surface);
                     if (!ok) {
                         nativeDestroy(nativeHandle);
@@ -137,7 +164,6 @@ public class VulkanRenderer implements WindowManager.OnWindowModificationListene
                 }
                 nativeHandle = nativeInit(surface, xServer.screenInfo.width, xServer.screenInfo.height, driverPath, driverLibraryName, nativeLibDir);
                 if (nativeHandle != 0) {
-
                     nativeSetPresentMode(nativeHandle, pendingPresentMode);
                     nativeSetFilterMode(nativeHandle, pendingFilterMode);
                     nativeSetSwapRB(nativeHandle, pendingSwapRB);
@@ -209,14 +235,13 @@ public class VulkanRenderer implements WindowManager.OnWindowModificationListene
             initExecutor = null;
         }
         synchronized (lock) {
+            savedSurface = null;
             if (nativeHandle != 0) {
                 if (nativeMode) {
-
                     nativeDestroyScanout(nativeHandle);
                     nativeDestroy(nativeHandle);
                     nativeHandle = 0;
                 } else {
-
                     nativeDetachSurface(nativeHandle);
                 }
             }

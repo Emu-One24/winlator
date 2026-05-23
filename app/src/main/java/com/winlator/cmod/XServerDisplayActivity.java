@@ -104,6 +104,10 @@ import com.winlator.cmod.xserver.ScreenInfo;
 import com.winlator.cmod.xserver.Window;
 import com.winlator.cmod.xserver.WindowManager;
 import com.winlator.cmod.xserver.XServer;
+import com.winlator.cmod.dependency.Dependency;
+import com.winlator.cmod.dependency.DependencyManager;
+import com.winlator.cmod.dependency.DependencyExecutor;
+import java.util.List;
 
 import org.json.JSONArray;
 import org.json.JSONException;
@@ -191,6 +195,7 @@ public class XServerDisplayActivity extends AppCompatActivity implements Navigat
     private String screenEffectProfile;
 
     private GuestProgramLauncherComponent guestProgramLauncherComponent;
+    private volatile boolean dependenciesInstalled = true;
     private EnvVars overrideEnvVars;
 
     @Override
@@ -472,7 +477,7 @@ public class XServerDisplayActivity extends AppCompatActivity implements Navigat
         xServer.windowManager.addOnWindowModificationListener(new WindowManager.OnWindowModificationListener() {
             @Override
             public void onUpdateWindowContent(Window window) {
-                if (!winStarted[0] && window.isApplicationWindow()) {
+                if (dependenciesInstalled && !winStarted[0] && window.isApplicationWindow()) {
                     xServerView.getRenderer().setCursorVisible(true);
                     preloaderDialog.closeOnUiThread();
                     winStarted[0] = true;
@@ -487,6 +492,12 @@ public class XServerDisplayActivity extends AppCompatActivity implements Navigat
                 // Log the class name of the mapped window
                 Log.d("XServerDisplayActivity", "onMapWindow: Mapping window: " + window.getClassName());
                 assignTaskAffinity(window);
+
+                if (dependenciesInstalled && !winStarted[0] && window.isApplicationWindow()) {
+                    xServerView.getRenderer().setCursorVisible(true);
+                    preloaderDialog.closeOnUiThread();
+                    winStarted[0] = true;
+                }
             }
 
             @Override
@@ -1116,11 +1127,6 @@ public class XServerDisplayActivity extends AppCompatActivity implements Navigat
         guestProgramLauncherComponent.setEnvVars(envVars);
         guestProgramLauncherComponent.setTerminationCallback((status) -> exit());
 
-        // Add the launcher to our environment
-        environment.addComponent(guestProgramLauncherComponent);
-
-        // Initialize fake input for controller emulation - MUST be before Wine starts!
-        // Deleting old ones should also be done here ofc.
         // Initialize fake input for controller emulation - MUST be before Wine starts!
         File devInputDir = new File(imageFs.getRootDir(), "dev/input");
         if (devInputDir.exists() || devInputDir.mkdirs()) {
@@ -1129,6 +1135,90 @@ public class XServerDisplayActivity extends AppCompatActivity implements Navigat
 
         // Start all environment components (XServer, Audio, Wine, etc.)
         environment.startEnvironmentComponents();
+
+        environment.addComponent(guestProgramLauncherComponent);
+
+        guestProgramLauncherComponent.prepare();
+
+        String selectedDependenciesStr = "";
+        if (shortcut != null) {
+            selectedDependenciesStr = shortcut.getExtra("dependencies", "");
+        }
+        if (selectedDependenciesStr.isEmpty() && container != null) {
+            selectedDependenciesStr = container.getExtra("dependencies", "");
+        }
+
+        final List<String> selectedIds = new ArrayList<>();
+        if (selectedDependenciesStr != null && !selectedDependenciesStr.trim().isEmpty()) {
+            for (String s : selectedDependenciesStr.split(",")) {
+                String id = s.trim();
+                if (!id.isEmpty()) {
+                    selectedIds.add(id);
+                }
+            }
+        }
+
+        DependencyManager dependencyManager = new DependencyManager(this);
+        if (shortcut != null) {
+            String exeName = com.winlator.cmod.core.FileUtils.getName(shortcut.path);
+            List<String> autoFixes = dependencyManager.getProtonFixesForExecutable(exeName);
+            for (String fix : autoFixes) {
+                if (!selectedIds.contains(fix)) {
+                    selectedIds.add(fix);
+                }
+            }
+        }
+        final List<Dependency> resolvedDeps = selectedIds.isEmpty()
+                ? null
+                : dependencyManager.resolveDependencies(selectedIds);
+
+        if (resolvedDeps != null) {
+            if (shortcut != null) {
+                shortcut.putExtra("dependencies", "");
+                shortcut.saveData();
+            } else if (container != null) {
+                container.putExtra("dependencies", "");
+                container.saveData();
+            }
+        }
+
+        if (resolvedDeps != null && !resolvedDeps.isEmpty()) {
+            dependenciesInstalled = false;
+
+            if (xServerView != null) {
+                xServerView.getRenderer().setUnviewableWMClasses("explorer.exe");
+            }
+
+            guestProgramLauncherComponent.killWineServer();
+
+            DependencyExecutor.execute(
+                    this,
+                    preloaderDialog,
+                    guestProgramLauncherComponent,
+                    container,
+                    imageFs.getRootDir(),
+                    resolvedDeps);
+
+            guestProgramLauncherComponent.killWineServer();
+
+            try { Thread.sleep(1000); } catch (InterruptedException ignored) {}
+
+            dependenciesInstalled = true;
+
+            if (xServerView != null) {
+                if (shortcut != null) {
+                    xServerView.getRenderer().setUnviewableWMClasses("explorer.exe");
+                } else {
+                    xServerView.getRenderer().setUnviewableWMClasses();
+                }
+            }
+        }
+
+        guestProgramLauncherComponent.start();
+
+        if (xServerView != null) {
+            xServerView.getRenderer().updateScene();
+        }
 
         // Start the WinHandler (writes events to the file)
         winHandler.start();
@@ -1152,6 +1242,7 @@ public class XServerDisplayActivity extends AppCompatActivity implements Navigat
         xServerView = new XServerView(this, xServer);
         final VulkanRenderer renderer = xServerView.getRenderer();
         renderer.setCursorVisible(false);
+        renderer.setRenderingEnabled(true);
 
         String rendererDriverId = shortcut != null ? shortcut.getRendererDriverId()
                 : (container != null ? container.getRendererDriverId() : "");
